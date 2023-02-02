@@ -159,112 +159,112 @@ const toBinary = (schema: ObjType, data: any): Uint8Array => {
   return w.buffer.slice(0, w.pos)
 }
 
-function encodeInto(w: WriteBuffer, schema: ObjType, data: any) {
+function encodeInto(w: WriteBuffer, type: SType, val: any) {
+  checkType(val, type)
 
-  if (schema.encodeOptional !== 'bitfield') throw Error('NYI')
-  // First we need to find and encode the optional data bits
-  if (schema.fields.length >= 53) throw Error('Cannot encode more than 52 fields due to javascript badness')
-  let optionalBits = 0
+  if (typeof type === 'object') {
+    if (type.type === 'object') {
+      if (type.encodeOptional !== 'bitfield') throw Error('NYI')
 
-  for (const field of schema.fields) {
-    const hasDefault = field.default !== undefined
-    if (field.encodeMissingAsDefault != null && hasDefault) throw Error('Cannot set encodeMissingAsDefault when field has no default')
+      // First we need to find and encode the optional data bits
+      if (type.fields.length >= 53) throw Error('Cannot encode more than 52 fields due to javascript badness')
+      let optionalBits = 0
 
-    if (hasDefault) {
-      field.encodeMissingAsDefault ??= (
-        field.valType === 'bool'
-        || field.valType === 'uint'
-        || field.valType === 'sint'
-        || field.valType === 'string'
-        || field.valType === 'binary')
+      for (const field of type.fields) {
+        const hasDefault = field.default !== undefined
+        if (field.encodeMissingAsDefault != null && hasDefault) throw Error('Cannot set encodeMissingAsDefault when field has no default')
 
-      if (field.encodeMissingAsDefault === true) continue
-    }
+        if (hasDefault) {
+          field.encodeMissingAsDefault ??= (
+            field.valType === 'bool'
+            || field.valType === 'uint'
+            || field.valType === 'sint'
+            || field.valType === 'string'
+            || field.valType === 'binary')
 
-    let hasField = data[field.key] !== undefined
-    console.log('opt', field.key, hasField)
-    optionalBits = (optionalBits * 2) + (+hasField)
-
-    console.log('optional bits', optionalBits)
-  }
-
-  // Ok on to writing it.
-  writeVarInt(w, optionalBits)
-
-  for (const field of schema.fields) {
-    let val = data[field.key]
-
-    if (val === undefined && field.encodeMissingAsDefault) {
-      val = field.default
-    }
-
-    checkType(val, field.valType)
-
-    if (typeof field.valType === 'object') {
-      if (field.valType.type === 'object') {
-        // Recurse.
-        encodeInto(w, field.valType, val)
-      } else throw Error('nyi')
-    } else {
-      switch (field.valType) {
-        case 'bool': {
-          ensureCapacity(w, 1)
-          w.buffer[w.pos] = val
-          w.pos += 1
-          break
+          if (field.encodeMissingAsDefault === true) continue
         }
 
-        // case 'uint':
-        // case 'sint':
-        case 'f32': {
-          ensureCapacity(w, 4)
+        let hasField = val[field.key] !== undefined
+        console.log('opt', field.key, hasField)
+        optionalBits = (optionalBits * 2) + (+hasField)
 
-          // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
-          // to just write directly to the buffer, but unaligned writes aren't
-          // supported by Float32Array.
-          const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
-          dataView.setFloat32(0, val, true)
-
-          // let fArr = new Float32Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
-          // fArr[0] = val
-          w.pos += 4
-          break
-        }
-        case 'f64': {
-          ensureCapacity(w, 8)
-
-          const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
-          dataView.setFloat64(0, val, true)
-
-          // f32 values are stored natively as 8 byte IEEE floats.
-          // let fArr = new Float64Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
-          // fArr[0] = val
-          w.pos += 8
-          break
-        }
-        case 'sint': val = zigzagEncode(val) // And flow down.
-        case 'uint': {
-          writeVarInt(w, val)
-          break
-        }
-        case 'string': {
-          // This allocates, which isn't ideal. Could use encodeInto instead but this makes the
-          // length prefix much easier to place.
-          const strBytes = encoder.encode(val)
-          ensureCapacity(w, 9 + strBytes.length)
-          w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
-          w.buffer.set(strBytes, w.pos)
-          w.pos += strBytes.length
-          break
-        }
-
-        default:
-          throw Error('nyi')
+        console.log('optional bits', optionalBits)
       }
+
+      // Ok on to writing it.
+      writeVarInt(w, optionalBits)
+
+      for (const field of type.fields) {
+        let v = val[field.key]
+
+        if (v === undefined && field.encodeMissingAsDefault) {
+          v = field.default
+        }
+
+        // Recurse.
+        encodeInto(w, field.valType, v)
+      }
+
+    } else throw Error('nyi')
+  } else {
+    switch (type) {
+      case 'bool': {
+        ensureCapacity(w, 1)
+        w.buffer[w.pos] = val
+        w.pos += 1
+        break
+      }
+
+      case 'f32': {
+        ensureCapacity(w, 4)
+
+        // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
+        // to just write directly to the buffer, but unaligned writes aren't
+        // supported by Float32Array.
+        const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
+        dataView.setFloat32(0, val, true)
+
+        // let fArr = new Float32Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
+        // fArr[0] = val
+        w.pos += 4
+        break
+      }
+      case 'f64': {
+        ensureCapacity(w, 8)
+
+        const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
+        dataView.setFloat64(0, val, true)
+
+        // f32 values are stored natively as 8 byte IEEE floats.
+        // let fArr = new Float64Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
+        // fArr[0] = val
+        w.pos += 8
+        break
+      }
+
+      case 'sint': val = zigzagEncode(val) // And flow down.
+      case 'uint': {
+        writeVarInt(w, val)
+        break
+      }
+
+      case 'string': {
+        // This allocates, which isn't ideal. Could use encodeInto instead but this makes the
+        // length prefix much easier to place.
+        const strBytes = encoder.encode(val)
+        ensureCapacity(w, 9 + strBytes.length)
+        w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
+        w.buffer.set(strBytes, w.pos)
+        w.pos += strBytes.length
+        break
+      }
+
+      default:
+        throw Error('nyi')
     }
   }
 }
-
 
 {
   let testShape: ObjType = {
@@ -280,10 +280,10 @@ function encodeInto(w: WriteBuffer, schema: ObjType, data: any) {
           {key: 'a', valType: 'sint', default: -1}
         ]
       }},
-      {key: 'listy', valType: {
-        type: 'list',
-        fieldType: 'string',
-      }},
+      // {key: 'listy', valType: {
+      //   type: 'list',
+      //   fieldType: 'string',
+      // }},
     ]
   }
 
@@ -291,7 +291,7 @@ function encodeInto(w: WriteBuffer, schema: ObjType, data: any) {
     x: 12.32,
     id: 'oh hai',
     child: {a: -10},
-    listy: ['hi', 'yo']
+    // listy: ['hi', 'yo']
   }))
 
   // console.log(testShape)
