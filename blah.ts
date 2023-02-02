@@ -1,6 +1,7 @@
 // import fs from 'fs'
 import assert from 'assert/strict'
 import {varintEncode, varintEncodeInto, zigzagEncode} from './varint.js'
+import fs from 'fs'
 
 type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
 
@@ -205,7 +206,13 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
         // Recurse.
         encodeInto(w, field.valType, v)
       }
-
+    } else if (type.type === 'list') {
+      // Length prefixed list of entries.
+      // TODO: Consider special-casing bit arrays.
+      writeVarInt(w, val.length)
+      for (const v of val) {
+        encodeInto(w, type.fieldType, v)
+      }
     } else throw Error('nyi')
   } else {
     switch (type) {
@@ -280,19 +287,23 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
           {key: 'a', valType: 'sint', default: -1}
         ]
       }},
-      // {key: 'listy', valType: {
-      //   type: 'list',
-      //   fieldType: 'string',
-      // }},
+      {key: 'listy', valType: {
+        type: 'list',
+        fieldType: 'string',
+      }},
     ]
   }
 
-  console.log(toBinary(testShape, {
+  let out = toBinary(testShape, {
     x: 12.32,
     id: 'oh hai',
     child: {a: -10},
-    // listy: ['hi', 'yo']
-  }))
+    listy: ['hi', 'yo']
+  })
+
+  console.log(out)
+
+  fs.writeFileSync('out.scb', out)
 
   // console.log(testShape)
 }
