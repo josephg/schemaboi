@@ -30,7 +30,7 @@ interface Field {
 interface ObjType {
   type: 'object'
   fields: Field[]
-  encodeOptional: 'bitfield'
+  encodeOptional: 'bitfield' | 'none'
 }
 
 interface Schema {
@@ -127,14 +127,22 @@ const writeVarInt = (w: WriteBuffer, num: number) => {
 // }
 
 const checkType = (val: any, type: SType) => {
-  switch (type) {
-    case 'uint':
-    case 'sint':
-    case 'f32':
-    case 'f64': assert(typeof val === 'number'); break
-    case 'bool': assert(typeof val === 'boolean'); break
-    case 'string': assert(typeof val === 'string'); break
-    default: throw Error(`case missing in checkType: ${type}`)
+  if (typeof type === 'object' && type != null) {
+    if (type.type === 'object') {
+      assert(typeof val === 'object' && val != null && !Array.isArray(val))
+    } else {
+
+    }
+  } else {
+    switch (type) {
+      case 'uint':
+      case 'sint':
+      case 'f32':
+      case 'f64': assert(typeof val === 'number'); break
+      case 'bool': assert(typeof val === 'boolean'); break
+      case 'string': assert(typeof val === 'string'); break
+      default: throw Error(`case missing in checkType: ${type}`)
+    }
   }
 }
 
@@ -145,6 +153,13 @@ const toBinary = (schema: ObjType, data: any): Uint8Array => {
     buffer: new Uint8Array(32),
     pos: 0
   }
+
+  encodeInto(w, schema, data)
+
+  return w.buffer.slice(0, w.pos)
+}
+
+function encodeInto(w: WriteBuffer, schema: ObjType, data: any) {
 
   if (schema.encodeOptional !== 'bitfield') throw Error('NYI')
   // First we need to find and encode the optional data bits
@@ -178,66 +193,76 @@ const toBinary = (schema: ObjType, data: any): Uint8Array => {
 
   for (const field of schema.fields) {
     let val = data[field.key]
+
+    if (val === undefined && field.encodeMissingAsDefault) {
+      val = field.default
+    }
+
     checkType(val, field.valType)
 
-    switch (field.valType) {
-      case 'bool': {
-        ensureCapacity(w, 1)
-        w.buffer[w.pos] = val
-        w.pos += 1
-        break
+    if (typeof field.valType === 'object') {
+      if (field.valType.type === 'object') {
+        // Recurse.
+        encodeInto(w, field.valType, val)
+      } else throw Error('nyi')
+    } else {
+      switch (field.valType) {
+        case 'bool': {
+          ensureCapacity(w, 1)
+          w.buffer[w.pos] = val
+          w.pos += 1
+          break
+        }
+
+        // case 'uint':
+        // case 'sint':
+        case 'f32': {
+          ensureCapacity(w, 4)
+
+          // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
+          // to just write directly to the buffer, but unaligned writes aren't
+          // supported by Float32Array.
+          const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
+          dataView.setFloat32(0, val, true)
+
+          // let fArr = new Float32Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
+          // fArr[0] = val
+          w.pos += 4
+          break
+        }
+        case 'f64': {
+          ensureCapacity(w, 8)
+
+          const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
+          dataView.setFloat64(0, val, true)
+
+          // f32 values are stored natively as 8 byte IEEE floats.
+          // let fArr = new Float64Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
+          // fArr[0] = val
+          w.pos += 8
+          break
+        }
+        case 'sint': val = zigzagEncode(val) // And flow down.
+        case 'uint': {
+          writeVarInt(w, val)
+          break
+        }
+        case 'string': {
+          // This allocates, which isn't ideal. Could use encodeInto instead but this makes the
+          // length prefix much easier to place.
+          const strBytes = encoder.encode(val)
+          ensureCapacity(w, 9 + strBytes.length)
+          w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
+          w.buffer.set(strBytes, w.pos)
+          w.pos += strBytes.length
+          break
+        }
+
+        default:
+          throw Error('nyi')
       }
-
-      // case 'uint':
-      // case 'sint':
-      case 'f32': {
-        ensureCapacity(w, 4)
-
-        // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
-        // to just write directly to the buffer, but unaligned writes aren't
-        // supported by Float32Array.
-        const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
-        dataView.setFloat32(0, val, true)
-
-        // let fArr = new Float32Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
-        // fArr[0] = val
-        w.pos += 4
-        break
-      }
-      case 'f64': {
-        ensureCapacity(w, 8)
-
-        const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
-        dataView.setFloat64(0, val, true)
-
-        // f32 values are stored natively as 8 byte IEEE floats.
-        // let fArr = new Float64Array(w.buffer.buffer, w.buffer.byteOffset + w.pos, 1)
-        // fArr[0] = val
-        w.pos += 8
-        break
-      }
-      case 'sint': zigzagEncode(val) // And flow down.
-      case 'uint': {
-        writeVarInt(w, val)
-        break
-      }
-      case 'string': {
-        // This allocates, which isn't ideal. Could use encodeInto instead but this makes the
-        // length prefix much easier to place.
-        const strBytes = encoder.encode(val)
-        ensureCapacity(w, 9 + strBytes.length)
-        w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
-        w.buffer.set(strBytes, w.pos)
-        w.pos += strBytes.length
-        break
-      }
-
-      default:
-        throw Error('nyi')
     }
   }
-
-  return w.buffer.slice(0, w.pos)
 }
 
 
@@ -248,10 +273,35 @@ const toBinary = (schema: ObjType, data: any): Uint8Array => {
     fields: [
       {key: 'x', valType: 'f32'},
       {key: 'id', valType: 'string', default: ''},
+      {key: 'child', valType: {
+        type: 'object',
+        encodeOptional: 'bitfield',
+        fields: [
+          {key: 'a', valType: 'sint', default: -1}
+        ]
+      }},
+      {key: 'listy', valType: {
+        type: 'list',
+        fieldType: 'string',
+      }},
     ]
   }
 
-  console.log(toBinary(testShape, {x: 12.32, id: 'oh hai'}))
+  console.log(toBinary(testShape, {
+    x: 12.32,
+    id: 'oh hai',
+    child: {a: -10},
+    listy: ['hi', 'yo']
+  }))
 
   // console.log(testShape)
 }
+
+
+// {
+//   const metaSchema: ObjType = {
+//     type: 'object',
+
+//   }
+
+// }

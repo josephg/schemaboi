@@ -85,7 +85,7 @@ export function varintDecode(bytes: Uint8Array): number {
 
 export function zigzagEncode(val: number): number {
   return val < 0
-    ? val * 2 + 1
+    ? -val * 2 + 1
     : val * 2
 }
 

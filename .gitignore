@@ -1,3 +1,4 @@
 *.js
 yarn.lock
 node_modules
+*.js.map
