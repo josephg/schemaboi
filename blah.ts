@@ -5,7 +5,7 @@ import fs from 'fs'
 
 type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
 
-type SType = 'string' | 'binary' | Primitive | ListType | ObjType
+type SType = 'string' | 'binary' | Primitive | ListType | ObjType | Enum
 
 interface ListType {
   type: 'list',
@@ -34,10 +34,60 @@ interface ObjType {
   encodeOptional: 'bitfield' | 'none'
 }
 
-interface Schema {
 
+interface EnumVariant {
+  key: string
+  associatedData?: ObjType
 }
 
+interface Enum {
+  type: 'enum'
+  variants: EnumVariant[]
+}
+
+// interface Schema {
+//   root: SType
+//   types: {
+//     [k: string]: ObjType | Enum
+//   }
+// }
+
+
+
+// const metaSchema: Enum = {
+//   type: 'enum',
+//   variants: [
+//     {key: 'uint'},
+//     {key: 'sint'},
+//     {key: 'f32'},
+//     {key: 'f64'},
+//     {key: 'bool'},
+//     {key: 'string'},
+//     {key: 'binary'},
+//     {key: 'list', associatedData: {
+//       type: 'object',
+//       encodeOptional: 'bitfield',
+//       fields: [
+
+//       ]
+//     }},
+//     {key: 'object', associatedData: {
+//       type: 'object',
+//       encodeOptional: 'bitfield',
+//       fields: [
+
+//       ]
+//     }},
+//     {key: 'enum', associatedData: {
+//       type: 'object',
+//       encodeOptional: 'bitfield',
+//       fields: [
+
+//       ]
+
+//     }},
+//   ]
+// }
 
 
 
@@ -127,12 +177,34 @@ const writeVarInt = (w: WriteBuffer, num: number) => {
 //   }
 // }
 
+function findEnumVariant(val: string | Record<string, any>, type: Enum): number {
+  for (let i = 0; i < type.variants.length; i++) {
+    const variant = type.variants[i]
+
+    // So the val can either be a string (with the key of the variant)
+    // or its an object with a 'type:' field matching one of the variant arms.
+    if (typeof val === 'string') {
+      if (val === variant.key) return i
+    } else if (typeof val === 'object' && val != null && val.type === variant.key) {
+      // We might need to check inner fields...
+      return i
+    }
+  }
+
+  console.error('Value:', val)
+  throw Error('Variant missing in schema')
+}
+
 const checkType = (val: any, type: SType) => {
   if (typeof type === 'object' && type != null) {
     if (type.type === 'object') {
       assert(typeof val === 'object' && val != null && !Array.isArray(val))
+    } else if (type.type === 'list') {
+      assert(Array.isArray(val))
+    } else if (type.type === 'enum') {
+      findEnumVariant(val, type)
     } else {
-
+      throw Error('nyi')
     }
   } else {
     switch (type) {
@@ -187,10 +259,10 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
         }
 
         let hasField = val[field.key] !== undefined
-        console.log('opt', field.key, hasField)
+        // console.log('opt', field.key, hasField)
         optionalBits = (optionalBits * 2) + (+hasField)
 
-        console.log('optional bits', optionalBits)
+        // console.log('optional bits', optionalBits)
       }
 
       // Ok on to writing it.
@@ -212,6 +284,15 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
       writeVarInt(w, val.length)
       for (const v of val) {
         encodeInto(w, type.fieldType, v)
+      }
+    } else if (type.type === 'enum') {
+      const variantNum = findEnumVariant(val, type)
+      writeVarInt(w, variantNum)
+
+      let variant = type.variants[variantNum]
+      if (variant.associatedData != null) {
+        let v = typeof val === 'string' ? {} : val
+        encodeInto(w, variant.associatedData, v)
       }
     } else throw Error('nyi')
   } else {
@@ -291,6 +372,21 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
         type: 'list',
         fieldType: 'string',
       }},
+      {key: 'enum', valType: {
+        type: 'enum',
+        variants: [
+          {key: 'Red'},
+          {key: 'Green'},
+          {key: 'Blue'},
+          {key: 'Square', associatedData: {
+            encodeOptional: 'bitfield',
+            type: 'object',
+            fields: [
+              {key: 'side', valType: 'f32'}
+            ]
+          }},
+        ]
+      }},
     ]
   }
 
@@ -298,7 +394,9 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
     x: 12.32,
     id: 'oh hai',
     child: {a: -10},
-    listy: ['hi', 'yo']
+    listy: ['hi', 'yo'],
+    // enum: 'Red',
+    enum: {type: 'Square', side: 2.3}
   })
 
   console.log(out)
@@ -310,9 +408,5 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
 
 
 // {
-//   const metaSchema: ObjType = {
-//     type: 'object',
-
-//   }
 
 // }
