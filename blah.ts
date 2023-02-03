@@ -53,6 +53,7 @@ interface Map {
 }
 
 interface Schema {
+  id: string,
   root: SType
   types: Record<string, Struct | Enum>
 }
@@ -65,6 +66,7 @@ const enumOfStrings = (strings: string[]): Enum => ({
 
 const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
 const metaSchema: Schema = {
+  id: '_sbmeta',
   root: ref('Schema'),
 
   types: {
@@ -72,6 +74,7 @@ const metaSchema: Schema = {
       type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
+        {key: 'id', valType: 'string'},
         {key: 'root', valType: ref('SType')},
         {key: 'types', valType: {
           type: 'map',
@@ -184,6 +187,7 @@ const metaSchema: Schema = {
 // Example
 
 let shape: Schema = {
+  id: 'example1',
   root: {type: 'ref', key: 'shape'},
   types: {
     shape: {
@@ -483,6 +487,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 
 {
   const testSchema: Schema = {
+    id: 'example2',
     root: {type: 'ref', key: 'obj'},
     types: {
       obj: {
@@ -550,6 +555,6 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
   fs.writeFileSync('metaschema.scb', out)
 }
 
-// {
+{
 
-// }
+}
