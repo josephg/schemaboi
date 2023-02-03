@@ -8,11 +8,12 @@ type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
 type SType = 'string' | 'binary' | Primitive
   | {type: 'list', fieldType: SType}
   | {type: 'ref', key: string} // Reference to another type in the type oracle.
-  // | {type: 'object', key: string}
-  // | {type: 'enum', key: string}
+  | ObjType
+  | Enum
+  | Map
 
 
-type OnMissing = 'default' | 'elide'
+// type OnMissing = 'default' | 'elide'
 
 interface Field {
   key: string
@@ -37,12 +38,18 @@ interface ObjType {
 
 interface EnumVariant {
   key: string
-  associatedData?: ObjType
+  associatedData?: ObjType | {type: 'ref', key: string}
 }
 
 interface Enum {
   type: 'enum'
   variants: EnumVariant[]
+}
+
+interface Map {
+  type: 'map',
+  keyType: Primitive | 'string' | 'binary',
+  valType: SType
 }
 
 interface Schema {
@@ -51,41 +58,129 @@ interface Schema {
 }
 
 
+const enumOfStrings = (strings: string[]): Enum => ({
+  type: 'enum',
+  variants: strings.map(s => ({key: s}))
+})
 
-// const metaSchema: Enum = {
-//   type: 'enum',
-//   variants: [
-//     {key: 'uint'},
-//     {key: 'sint'},
-//     {key: 'f32'},
-//     {key: 'f64'},
-//     {key: 'bool'},
-//     {key: 'string'},
-//     {key: 'binary'},
-//     {key: 'list', associatedData: {
-//       type: 'object',
-//       encodeOptional: 'bitfield',
-//       fields: [
+const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
+const metaSchema: Schema = {
+  root: ref('Schema'),
 
-//       ]
-//     }},
-//     {key: 'object', associatedData: {
-//       type: 'object',
-//       encodeOptional: 'bitfield',
-//       fields: [
+  types: {
+    Schema: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'root', valType: ref('SType')},
+        {key: 'types', valType: {
+          type: 'map',
+          keyType: 'string',
+          valType: ref('SType')}
+        },
+      ]
+    },
 
-//       ]
-//     }},
-//     {key: 'enum', associatedData: {
-//       type: 'object',
-//       encodeOptional: 'bitfield',
-//       fields: [
+    Ref: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'key', valType: 'string'},
+      ]
+    },
 
-//       ]
+    EnumVariant: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'key', valType: 'string'},
+        {key: 'associatedData', valType: {
+          type: 'enum',
+          variants: [
+            {key: 'obj', associatedData: {
+              type: 'ref',
+              key: 'ObjType'
+            }},
+            {key: 'ref', associatedData: {
+              type: 'obj',
+              encodeOptional: 'bitfield',
+              fields: [
+                {key: 'key', valType: 'string'},
+              ]
+            }},
+          ]
+        }}
+      ]
+    },
 
-//     }},
-//   ]
-// }
+    Enum: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        // {key: 'type', valType: enumOfStrings(['enum'])},
+        {key: 'variants', valType: {type: 'list', fieldType: ref('EnumVariant')}}
+      ]
+    },
+
+    ObjType: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'fields', valType: {type: 'list', fieldType: ref('Field')}},
+        {key: 'encodeOptional', valType: enumOfStrings(['bitfield', 'none'])}
+      ]
+    },
+
+    Field: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'key', valType: 'string'},
+        {key: 'valType', valType: ref('SType')},
+        //  TODO: Default!
+        {key: 'encodeMissingAsDefault', valType: 'bool'},
+      ]
+    },
+
+    Map: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'keyType', valType: enumOfStrings(['uint', 'sint', 'f32', 'f64', 'bool', 'string', 'binary'])},
+        {key: 'valType', valType: ref('SType')}
+      ]
+    },
+
+    SType: {
+      type: 'enum',
+      variants: [
+        {key: 'uint'},
+        {key: 'sint'},
+        {key: 'f32'},
+        {key: 'f64'},
+        {key: 'bool'},
+        {key: 'string'},
+        {key: 'binary'},
+        {key: 'list', associatedData: {
+          type: 'obj',
+          encodeOptional: 'bitfield',
+          fields: [
+            {key: 'fieldType', valType: ref('SType')} // Recursive.
+          ]
+        }},
+
+        {key: 'ref', associatedData: {
+          type: 'obj',
+          encodeOptional: 'bitfield',
+          fields: [{key: 'key', valType: 'string'}]
+        }},
+        {key: 'obj', associatedData: ref('ObjType')},
+        {key: 'enum', associatedData: ref('Enum')},
+        {key: 'map', associatedData: ref('Map')},
+      ]
+    }
+  }
+}
 
 
 
@@ -174,6 +269,18 @@ const writeVarInt = (w: WriteBuffer, num: number) => {
   w.pos += varintEncodeInto(num, w.buffer, w.pos)
 }
 
+const encoder = new TextEncoder()
+
+const writeString = (w: WriteBuffer, str: string) => {
+  // This allocates, which isn't ideal. Could use encodeInto instead but doing it this way makes the
+  // length prefix much easier to place.
+  const strBytes = encoder.encode(str)
+  ensureCapacity(w, 9 + strBytes.length)
+  w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
+  w.buffer.set(strBytes, w.pos)
+  w.pos += strBytes.length
+}
+
 // const assert = (a: boolean, msg?: string) => {
 //   if (!a) {
 //     throw Error(msg ?? 'Assertion failed')
@@ -208,10 +315,16 @@ const checkType = (val: any, type: SType | ObjType | Enum) => {
       assert(Array.isArray(val))
     } else if (type.type === 'enum') {
       findEnumVariant(val, type)
+    } else if (type.type === 'map') {
+      assert(type.keyType === 'string', 'Non-string keys in maps not implemented yet')
+      // TODO: Or should we allow empty maps represented as null?
+      assert(typeof val === 'object' && val != null && !Array.isArray(val))
     } else {
+      console.error(type)
       throw Error('nyi')
     }
   } else {
+    // console.log('val', val, 'type', type)
     switch (type) {
       case 'uint': case 'sint': case 'f32': case 'f64':
         assert(typeof val === 'number'); break
@@ -222,14 +335,13 @@ const checkType = (val: any, type: SType | ObjType | Enum) => {
   }
 }
 
-const encoder = new TextEncoder()
-
 const toBinary = (schema: Schema, data: any): Uint8Array => {
   let w: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0
   }
 
+  encodeInto(w, metaSchema.types, metaSchema.root, schema)
   encodeInto(w, schema.types, schema.root, data)
 
   return w.buffer.slice(0, w.pos)
@@ -265,7 +377,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
             || field.valType === 'string'
             || field.valType === 'binary')
 
-          if (field.encodeMissingAsDefault === true) continue
+          if (field.encodeMissingAsDefault) continue
         }
 
         let hasField = val[field.key] !== undefined
@@ -281,8 +393,12 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
       for (const field of type.fields) {
         let v = val[field.key]
 
-        if (v === undefined && field.encodeMissingAsDefault) {
-          v = field.default
+        if (v === undefined) {
+          if (field.encodeMissingAsDefault) {
+            v = field.default
+          } else {
+            continue
+          }
         }
 
         // Recurse.
@@ -303,6 +419,15 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
       if (variant.associatedData != null) {
         let v = typeof val === 'string' ? {} : val
         encodeInto(w, oracle, variant.associatedData, v)
+      }
+    } else if (type.type === 'map') {
+      // Maps are encoded as a list of (key, value) pairs.
+      const entries = Object.entries(val)
+      writeVarInt(w, entries.length)
+      assert(type.keyType === 'string', 'NYI')
+      for (const [k, v] of entries) {
+        encodeInto(w, oracle, type.keyType, k)
+        encodeInto(w, oracle, type.valType, v)
       }
     } else throw Error('invalid or unknown data type')
   } else {
@@ -348,13 +473,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
       }
 
       case 'string': {
-        // This allocates, which isn't ideal. Could use encodeInto instead but this makes the
-        // length prefix much easier to place.
-        const strBytes = encoder.encode(val)
-        ensureCapacity(w, 9 + strBytes.length)
-        w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
-        w.buffer.set(strBytes, w.pos)
-        w.pos += strBytes.length
+        writeString(w, val)
         break
       }
 
@@ -425,6 +544,13 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
   // console.log(testShape)
 }
 
+
+{
+  let out = toBinary(metaSchema, metaSchema)
+  console.log('meta', out)
+
+  fs.writeFileSync('metaschema.scb', out)
+}
 
 // {
 
