@@ -8,7 +8,7 @@ type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
 type SType = 'string' | 'binary' | Primitive
   | {type: 'list', fieldType: SType}
   | {type: 'ref', key: string} // Reference to another type in the type oracle.
-  | ObjType
+  | Struct
   | Enum
   | Map
 
@@ -29,8 +29,8 @@ interface Field {
   // onMissing: OnMissing,
 }
 
-interface ObjType {
-  type: 'obj'
+interface Struct {
+  type: 'struct'
   fields: Field[]
   encodeOptional: 'bitfield' | 'none'
 }
@@ -38,7 +38,7 @@ interface ObjType {
 
 interface EnumVariant {
   key: string
-  associatedData?: ObjType | {type: 'ref', key: string}
+  associatedData?: Struct | {type: 'ref', key: string}
 }
 
 interface Enum {
@@ -54,7 +54,7 @@ interface Map {
 
 interface Schema {
   root: SType
-  types: Record<string, ObjType | Enum>
+  types: Record<string, Struct | Enum>
 }
 
 
@@ -69,7 +69,7 @@ const metaSchema: Schema = {
 
   types: {
     Schema: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'root', valType: ref('SType')},
@@ -82,7 +82,7 @@ const metaSchema: Schema = {
     },
 
     Ref: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'key', valType: 'string'},
@@ -90,19 +90,16 @@ const metaSchema: Schema = {
     },
 
     EnumVariant: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'key', valType: 'string'},
         {key: 'associatedData', valType: {
           type: 'enum',
           variants: [
-            {key: 'obj', associatedData: {
-              type: 'ref',
-              key: 'ObjType'
-            }},
+            {key: 'struct', associatedData: ref('Struct')},
             {key: 'ref', associatedData: {
-              type: 'obj',
+              type: 'struct',
               encodeOptional: 'bitfield',
               fields: [
                 {key: 'key', valType: 'string'},
@@ -114,7 +111,7 @@ const metaSchema: Schema = {
     },
 
     Enum: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         // {key: 'type', valType: enumOfStrings(['enum'])},
@@ -122,8 +119,8 @@ const metaSchema: Schema = {
       ]
     },
 
-    ObjType: {
-      type: 'obj',
+    Struct: {
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'fields', valType: {type: 'list', fieldType: ref('Field')}},
@@ -132,7 +129,7 @@ const metaSchema: Schema = {
     },
 
     Field: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'key', valType: 'string'},
@@ -143,7 +140,7 @@ const metaSchema: Schema = {
     },
 
     Map: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'keyType', valType: enumOfStrings(['uint', 'sint', 'f32', 'f64', 'bool', 'string', 'binary'])},
@@ -162,7 +159,7 @@ const metaSchema: Schema = {
         {key: 'string'},
         {key: 'binary'},
         {key: 'list', associatedData: {
-          type: 'obj',
+          type: 'struct',
           encodeOptional: 'bitfield',
           fields: [
             {key: 'fieldType', valType: ref('SType')} // Recursive.
@@ -170,11 +167,11 @@ const metaSchema: Schema = {
         }},
 
         {key: 'ref', associatedData: {
-          type: 'obj',
+          type: 'struct',
           encodeOptional: 'bitfield',
           fields: [{key: 'key', valType: 'string'}]
         }},
-        {key: 'obj', associatedData: ref('ObjType')},
+        {key: 'struct', associatedData: ref('Struct')},
         {key: 'enum', associatedData: ref('Enum')},
         {key: 'map', associatedData: ref('Map')},
       ]
@@ -190,7 +187,7 @@ let shape: Schema = {
   root: {type: 'ref', key: 'shape'},
   types: {
     shape: {
-      type: 'obj',
+      type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
         {key: 'x', valType: 'f32'},
@@ -305,11 +302,11 @@ function findEnumVariant(val: string | Record<string, any>, type: Enum): number 
   throw Error('Variant missing in schema')
 }
 
-const checkType = (val: any, type: SType | ObjType | Enum) => {
+const checkType = (val: any, type: SType | Struct | Enum) => {
   if (typeof type === 'object' && type != null) {
     if (type.type === 'ref') throw Error('References not checked in checkType')
 
-    if (type.type === 'obj') {
+    if (type.type === 'struct') {
       assert(typeof val === 'object' && val != null && !Array.isArray(val))
     } else if (type.type === 'list') {
       assert(Array.isArray(val))
@@ -347,9 +344,10 @@ const toBinary = (schema: Schema, data: any): Uint8Array => {
   return w.buffer.slice(0, w.pos)
 }
 
-function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type: SType | ObjType | Enum, val: any) {
+function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type: SType | Struct | Enum, val: any) {
   while (typeof type === 'object' && type != null && type.type === 'ref') {
     const actualType = oracle[type.key]
+    // console.log(type)
     if (actualType == null) throw Error('Missing type: ' + type.key)
 
     type = actualType
@@ -358,7 +356,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
   checkType(val, type)
 
   if (typeof type === 'object') {
-    if (type.type === 'obj') {
+    if (type.type === 'struct') {
       if (type.encodeOptional !== 'bitfield') throw Error('NYI')
 
       // First we need to find and encode the optional data bits
@@ -488,7 +486,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
     root: {type: 'ref', key: 'obj'},
     types: {
       obj: {
-        type: 'obj',
+        type: 'struct',
         encodeOptional: 'bitfield',
         fields: [
           {key: 'x', valType: 'f32'},
@@ -503,7 +501,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
       },
 
       child: {
-        type: 'obj',
+        type: 'struct',
         encodeOptional: 'bitfield',
         fields: [
           {key: 'a', valType: 'sint', default: -1}
@@ -517,7 +515,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type
           {key: 'Green'},
           {key: 'Blue'},
           {key: 'Square', associatedData: {
-            type: 'obj',
+            type: 'struct',
             encodeOptional: 'bitfield',
             fields: [
               {key: 'side', valType: 'f32'}
