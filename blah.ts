@@ -72,7 +72,7 @@ const metaSchema: Schema = {
   types: {
     Schema: {
       type: 'struct',
-      encodeOptional: 'bitfield',
+      encodeOptional: 'none',
       fields: [
         {key: 'id', valType: 'string'},
         {key: 'root', valType: ref('SType')},
@@ -86,7 +86,7 @@ const metaSchema: Schema = {
 
     Ref: {
       type: 'struct',
-      encodeOptional: 'bitfield',
+      encodeOptional: 'none',
       fields: [
         {key: 'key', valType: 'string'},
       ]
@@ -115,7 +115,7 @@ const metaSchema: Schema = {
 
     Enum: {
       type: 'struct',
-      encodeOptional: 'bitfield',
+      encodeOptional: 'none',
       fields: [
         // {key: 'type', valType: enumOfStrings(['enum'])},
         {key: 'variants', valType: {type: 'list', fieldType: ref('EnumVariant')}}
@@ -144,7 +144,7 @@ const metaSchema: Schema = {
 
     Map: {
       type: 'struct',
-      encodeOptional: 'bitfield',
+      encodeOptional: 'none',
       fields: [
         {key: 'keyType', valType: enumOfStrings(['uint', 'sint', 'f32', 'f64', 'bool', 'string', 'binary'])},
         {key: 'valType', valType: ref('SType')}
@@ -163,7 +163,7 @@ const metaSchema: Schema = {
         {key: 'binary'},
         {key: 'list', associatedData: {
           type: 'struct',
-          encodeOptional: 'bitfield',
+          encodeOptional: 'none',
           fields: [
             {key: 'fieldType', valType: ref('SType')} // Recursive.
           ]
@@ -361,36 +361,37 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 
   if (typeof type === 'object') {
     if (type.type === 'struct') {
-      if (type.encodeOptional !== 'bitfield') throw Error('NYI')
+      if (type.encodeOptional === 'bitfield') {
+        // EncodeOptional=bitfield encodes the set of fields each object has in a bitfield at the start of the struct definition.
 
-      // First we need to find and encode the optional data bits
-      if (type.fields.length >= 53) throw Error('Cannot encode more than 52 fields due to javascript badness')
-      let optionalBits = 0
+        if (type.fields.length >= 53) throw Error('Cannot encode more than 52 fields due to javascript badness')
+        let optionalBits = 0
 
-      for (const field of type.fields) {
-        const hasDefault = field.default !== undefined
-        if (field.encodeMissingAsDefault != null && hasDefault) throw Error('Cannot set encodeMissingAsDefault when field has no default')
+        for (const field of type.fields) {
+          const hasDefault = field.default !== undefined
+          if (field.encodeMissingAsDefault != null && hasDefault) throw Error('Cannot set encodeMissingAsDefault when field has no default')
 
-        if (hasDefault) {
-          field.encodeMissingAsDefault ??= (
-            field.valType === 'bool'
-            || field.valType === 'uint'
-            || field.valType === 'sint'
-            || field.valType === 'string'
-            || field.valType === 'binary')
+          if (hasDefault) {
+            field.encodeMissingAsDefault ??= (
+              field.valType === 'bool'
+              || field.valType === 'uint'
+              || field.valType === 'sint'
+              || field.valType === 'string'
+              || field.valType === 'binary')
 
-          if (field.encodeMissingAsDefault) continue
+            if (field.encodeMissingAsDefault) continue
+          }
+
+          let hasField = val[field.key] !== undefined
+          // console.log('opt', field.key, hasField)
+          optionalBits = (optionalBits * 2) + (+hasField)
+
+          // console.log('optional bits', optionalBits)
         }
 
-        let hasField = val[field.key] !== undefined
-        // console.log('opt', field.key, hasField)
-        optionalBits = (optionalBits * 2) + (+hasField)
-
-        // console.log('optional bits', optionalBits)
-      }
-
-      // Ok on to writing it.
-      writeVarInt(w, optionalBits)
+        // Ok on to writing it.
+        writeVarInt(w, optionalBits)
+      } else if (type.encodeOptional !== 'none') throw Error('unknown encodeOptional value')
 
       for (const field of type.fields) {
         let v = val[field.key]
@@ -399,6 +400,10 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
           if (field.encodeMissingAsDefault) {
             v = field.default
           } else {
+            if (type.encodeOptional === 'none') {
+              throw Error('Cannot encode value: encodeOptional: none and object has missing fields')
+            }
+
             continue
           }
         }
