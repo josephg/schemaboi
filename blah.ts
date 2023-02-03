@@ -5,12 +5,12 @@ import fs from 'fs'
 
 type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
 
-type SType = 'string' | 'binary' | Primitive | ListType | ObjType | Enum
+type SType = 'string' | 'binary' | Primitive
+  | {type: 'list', fieldType: SType}
+  | {type: 'ref', key: string} // Reference to another type in the type oracle.
+  // | {type: 'object', key: string}
+  // | {type: 'enum', key: string}
 
-interface ListType {
-  type: 'list',
-  fieldType: SType
-}
 
 type OnMissing = 'default' | 'elide'
 
@@ -29,7 +29,7 @@ interface Field {
 }
 
 interface ObjType {
-  type: 'object'
+  type: 'obj'
   fields: Field[]
   encodeOptional: 'bitfield' | 'none'
 }
@@ -45,12 +45,10 @@ interface Enum {
   variants: EnumVariant[]
 }
 
-// interface Schema {
-//   root: SType
-//   types: {
-//     [k: string]: ObjType | Enum
-//   }
-// }
+interface Schema {
+  root: SType
+  types: Record<string, ObjType | Enum>
+}
 
 
 
@@ -93,20 +91,25 @@ interface Enum {
 
 // Example
 
-let shape: ObjType = {
-  type: 'object',
-  encodeOptional: 'bitfield',
-  fields: [
-    {key: 'x', valType: 'f32'},
-    {key: 'y', valType: 'f32'},
-    {key: 'rotation', valType: 'f32'},
-    {key: 'id', valType: 'string'},
-    // {key: 'props', valType: {
-    //   fields: [
-    //     {key: 'opacity', valType: 'f32', onMissing: 'default'}
-    //   ]
-    // }},
-  ]
+let shape: Schema = {
+  root: {type: 'ref', key: 'shape'},
+  types: {
+    shape: {
+      type: 'obj',
+      encodeOptional: 'bitfield',
+      fields: [
+        {key: 'x', valType: 'f32'},
+        {key: 'y', valType: 'f32'},
+        {key: 'rotation', valType: 'f32'},
+        {key: 'id', valType: 'string'},
+        // {key: 'props', valType: {
+        //   fields: [
+        //     {key: 'opacity', valType: 'f32', onMissing: 'default'}
+        //   ]
+        // }},
+      ]
+    }
+  }
 }
 
 
@@ -195,9 +198,11 @@ function findEnumVariant(val: string | Record<string, any>, type: Enum): number 
   throw Error('Variant missing in schema')
 }
 
-const checkType = (val: any, type: SType) => {
+const checkType = (val: any, type: SType | ObjType | Enum) => {
   if (typeof type === 'object' && type != null) {
-    if (type.type === 'object') {
+    if (type.type === 'ref') throw Error('References not checked in checkType')
+
+    if (type.type === 'obj') {
       assert(typeof val === 'object' && val != null && !Array.isArray(val))
     } else if (type.type === 'list') {
       assert(Array.isArray(val))
@@ -208,10 +213,8 @@ const checkType = (val: any, type: SType) => {
     }
   } else {
     switch (type) {
-      case 'uint':
-      case 'sint':
-      case 'f32':
-      case 'f64': assert(typeof val === 'number'); break
+      case 'uint': case 'sint': case 'f32': case 'f64':
+        assert(typeof val === 'number'); break
       case 'bool': assert(typeof val === 'boolean'); break
       case 'string': assert(typeof val === 'string'); break
       default: throw Error(`case missing in checkType: ${type}`)
@@ -221,22 +224,29 @@ const checkType = (val: any, type: SType) => {
 
 const encoder = new TextEncoder()
 
-const toBinary = (schema: ObjType, data: any): Uint8Array => {
+const toBinary = (schema: Schema, data: any): Uint8Array => {
   let w: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0
   }
 
-  encodeInto(w, schema, data)
+  encodeInto(w, schema.types, schema.root, data)
 
   return w.buffer.slice(0, w.pos)
 }
 
-function encodeInto(w: WriteBuffer, type: SType, val: any) {
+function encodeInto(w: WriteBuffer, oracle: Record<string, ObjType | Enum>, type: SType | ObjType | Enum, val: any) {
+  while (typeof type === 'object' && type != null && type.type === 'ref') {
+    const actualType = oracle[type.key]
+    if (actualType == null) throw Error('Missing type: ' + type.key)
+
+    type = actualType
+  }
+
   checkType(val, type)
 
   if (typeof type === 'object') {
-    if (type.type === 'object') {
+    if (type.type === 'obj') {
       if (type.encodeOptional !== 'bitfield') throw Error('NYI')
 
       // First we need to find and encode the optional data bits
@@ -276,14 +286,14 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
         }
 
         // Recurse.
-        encodeInto(w, field.valType, v)
+        encodeInto(w, oracle, field.valType, v)
       }
     } else if (type.type === 'list') {
       // Length prefixed list of entries.
       // TODO: Consider special-casing bit arrays.
       writeVarInt(w, val.length)
       for (const v of val) {
-        encodeInto(w, type.fieldType, v)
+        encodeInto(w, oracle, type.fieldType, v)
       }
     } else if (type.type === 'enum') {
       const variantNum = findEnumVariant(val, type)
@@ -292,9 +302,9 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
       let variant = type.variants[variantNum]
       if (variant.associatedData != null) {
         let v = typeof val === 'string' ? {} : val
-        encodeInto(w, variant.associatedData, v)
+        encodeInto(w, oracle, variant.associatedData, v)
       }
-    } else throw Error('nyi')
+    } else throw Error('invalid or unknown data type')
   } else {
     switch (type) {
       case 'bool': {
@@ -355,42 +365,51 @@ function encodeInto(w: WriteBuffer, type: SType, val: any) {
 }
 
 {
-  let testShape: ObjType = {
-    type: 'object',
-    encodeOptional: 'bitfield',
-    fields: [
-      {key: 'x', valType: 'f32'},
-      {key: 'id', valType: 'string', default: ''},
-      {key: 'child', valType: {
-        type: 'object',
+  const testSchema: Schema = {
+    root: {type: 'ref', key: 'obj'},
+    types: {
+      obj: {
+        type: 'obj',
+        encodeOptional: 'bitfield',
+        fields: [
+          {key: 'x', valType: 'f32'},
+          {key: 'id', valType: 'string', default: ''},
+          {key: 'child', valType: {type: 'ref', key: 'child'}},
+          {key: 'listy', valType: {
+            type: 'list',
+            fieldType: 'string',
+          }},
+          {key: 'enum', valType: {type: 'ref', key: 'enum'}},
+        ]
+      },
+
+      child: {
+        type: 'obj',
         encodeOptional: 'bitfield',
         fields: [
           {key: 'a', valType: 'sint', default: -1}
         ]
-      }},
-      {key: 'listy', valType: {
-        type: 'list',
-        fieldType: 'string',
-      }},
-      {key: 'enum', valType: {
+      },
+
+      enum: {
         type: 'enum',
         variants: [
           {key: 'Red'},
           {key: 'Green'},
           {key: 'Blue'},
           {key: 'Square', associatedData: {
+            type: 'obj',
             encodeOptional: 'bitfield',
-            type: 'object',
             fields: [
               {key: 'side', valType: 'f32'}
             ]
           }},
         ]
-      }},
-    ]
+      }
+    }
   }
 
-  let out = toBinary(testShape, {
+  let out = toBinary(testSchema, {
     x: 12.32,
     id: 'oh hai',
     child: {a: -10},
