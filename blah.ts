@@ -343,6 +343,7 @@ const toBinary = (schema: Schema, data: any): Uint8Array => {
   }
 
   encodeInto(w, metaSchema.types, metaSchema.root, schema)
+  console.log('schema', schema.id, 'size', w.pos)
   encodeInto(w, schema.types, schema.root, data)
 
   return w.buffer.slice(0, w.pos)
@@ -393,6 +394,8 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         writeVarInt(w, optionalBits)
       } else if (type.encodeOptional !== 'none') throw Error('unknown encodeOptional value')
 
+      let numFieldsEncoded = 0
+      // const encoded = []
       for (const field of type.fields) {
         let v = val[field.key]
 
@@ -406,10 +409,22 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 
             continue
           }
+        } else {
+          // encoded.push(field.key)
+          numFieldsEncoded += 1
         }
 
         // Recurse.
         encodeInto(w, oracle, field.valType, v)
+      }
+
+
+      const numFields = Object.keys(val).length
+      if (numFields > numFieldsEncoded) {
+        // console.log('keys', Object.keys(val), 'encoded', encoded)
+        const missingKeys = Object.keys(val)
+          .filter(k => (type as Struct).fields.find(f => f.key === k) == null)
+        console.warn('Did not encode all fields in object: missing', missingKeys) //, numFields, numFieldsEncoded)
       }
     } else if (type.type === 'list') {
       // Length prefixed list of entries.
@@ -561,5 +576,102 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 }
 
 {
+  // {
+  //   x: -106.12151973486039,
+  //   y: 0.06565913602321416,
+  //   rotation: 0,
+  //   id: 'shape:aI0efwVMwVf-oReOkXBtn',
+  //   index: 'b0N',
+  //   type: 'text',
+  //   props: {
+  //     opacity: '1',
+  //     color: 'black',
+  //     size: 'xl',
+  //     w: 321,
+  //     text: 'Document',
+  //     font: 'draw',
+  //     align: 'start',
+  //     autoSize: true
+  //   },
+  //   typeName: 'shape',
+  //   parentId: 'page:Asc2ckmOb_rT-eRbpd4Ni'
+  // },
+
+
+  const testSchema: Schema = {
+    id: 'Shape',
+    // root: ref('Shape'),
+    root: {type: 'list', fieldType: ref('Shape')},
+    types: {
+      Shape: {
+        type: 'struct',
+        encodeOptional: 'none', // Change me?
+        fields: [
+          {key: 'x', valType: 'f32'},
+          {key: 'y', valType: 'f32'},
+          {key: 'rotation', valType: 'f32'},
+          {key: 'id', valType: 'string', default: ''},
+          {key: 'parentId', valType: 'string', default: ''},
+          {key: 'index', valType: 'string'},
+          {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
+          {key: 'typeName', valType: enumOfStrings(['shape'])},
+          {key: 'props', valType: ref('Props')},
+        ]
+      },
+
+      Props: {
+        type: 'struct',
+        encodeOptional: 'bitfield',
+        fields: [
+          {key: 'opacity', valType: 'string'},
+          {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
+          {key: 'size', valType: enumOfStrings(['l', 'xl'])},
+          {key: 'w', valType: 'uint'},
+          {key: 'text', valType: 'string'},
+          {key: 'font', valType: 'string'},
+          {key: 'align', valType: enumOfStrings(['middle', 'start', 'end'])},
+          {key: 'autoSize', valType: 'bool'},
+
+          // These only show up sometimes.
+          {key: 'arrowheadStart', valType: enumOfStrings(['arrow', 'none'])},
+          {key: 'arrowheadEnd', valType: enumOfStrings(['arrow', 'none'])},
+          {key: 'dash', valType: enumOfStrings(['draw'])},
+          {key: 'fill', valType: enumOfStrings(['pattern', 'none'])},
+          {key: 'geo', valType: enumOfStrings(['ellipse', 'rectangle'])},
+          {key: 'growY', valType: 'uint'},
+          {key: 'bend', valType: 'f32'},
+          {key: 'h', valType: 'f32'},
+
+          // Arrows
+          {key: 'start', valType: ref('ArrowEnd')},
+          {key: 'end', valType: ref('ArrowEnd')},
+        ]
+      },
+
+      ArrowEnd: {
+        type: 'struct',
+        encodeOptional: 'none',
+        fields: [
+          {key: 'x', valType: 'f32'},
+          {key: 'y', valType: 'f32'},
+          {key: 'binding', valType: 'string'},
+          {key: 'anchor', valType: {
+            type: 'struct', encodeOptional: 'none',
+            fields: [
+              {key: 'x', valType: 'f32'},
+              {key: 'y', valType: 'f32'}
+            ]
+          }}
+        ]
+      }
+    }
+  }
+
+  console.log('\n\n')
+  const shapes = require('./tldraw-example.json').data.shape
+  // console.log(shapes)
+  const out = toBinary(testSchema, shapes)
+  console.log('Output length', out.length)
+  fs.writeFileSync('tld.scb', out)
 
 }
