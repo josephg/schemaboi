@@ -94,3 +94,7 @@ export function zigzagDecode(val: number): number {
     ? -Math.floor(val / 2)
     : Math.floor(val / 2)
 }
+
+export function mixBit(val: number, bit: boolean): number {
+  return (val * 2) + (+bit)
+}

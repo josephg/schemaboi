@@ -1,22 +1,23 @@
 // import fs from 'fs'
 import assert from 'assert/strict'
-import {varintEncode, varintEncodeInto, zigzagEncode} from './varint.js'
+import {mixBit, varintEncodeInto, zigzagEncode} from './varint.js'
 import fs from 'fs'
 
-type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool'
+type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
 
-type SType = 'string' | 'binary' | Primitive
+type SType = Primitive
   | {type: 'list', fieldType: SType}
   | {type: 'ref', key: string} // Reference to another type in the type oracle.
   | Struct
   | Enum
-  | Map
+  | MapType
 
 
 // type OnMissing = 'default' | 'elide'
 
 interface Field {
   key: string
+  // TODO: name.
   valType: SType,
   default?: any,
 
@@ -27,6 +28,8 @@ interface Field {
   */
   encodeMissingAsDefault?: boolean
   // onMissing: OnMissing,
+
+  localOnly?: boolean
 }
 
 interface Struct {
@@ -43,12 +46,13 @@ interface EnumVariant {
 
 interface Enum {
   type: 'enum'
+
   variants: EnumVariant[]
 }
 
-interface Map {
+interface MapType { // MapType rather than Map because Map is the name of a builtin type.
   type: 'map',
-  keyType: Primitive | 'string' | 'binary',
+  keyType: Primitive
   valType: SType
 }
 
@@ -139,6 +143,7 @@ const metaSchema: Schema = {
         {key: 'valType', valType: ref('SType')},
         //  TODO: Default!
         {key: 'encodeMissingAsDefault', valType: 'bool'},
+        {key: 'localOnly', valType: 'bool', localOnly: true}, // Quite funny!
       ]
     },
 
@@ -160,6 +165,7 @@ const metaSchema: Schema = {
         {key: 'f64'},
         {key: 'bool'},
         {key: 'string'},
+        {key: 'id'},
         {key: 'binary'},
         {key: 'list', associatedData: {
           type: 'struct',
@@ -242,6 +248,7 @@ let s = {
 interface WriteBuffer {
   buffer: Uint8Array,
   pos: number,
+  ids: Map<string, number>
 }
 
 const nextPowerOf2 = (v: number): number => {
@@ -330,7 +337,7 @@ const checkType = (val: any, type: SType | Struct | Enum) => {
       case 'uint': case 'sint': case 'f32': case 'f64':
         assert(typeof val === 'number'); break
       case 'bool': assert(typeof val === 'boolean'); break
-      case 'string': assert(typeof val === 'string'); break
+      case 'string': case 'id': assert(typeof val === 'string'); break
       default: throw Error(`case missing in checkType: ${type}`)
     }
   }
@@ -339,7 +346,8 @@ const checkType = (val: any, type: SType | Struct | Enum) => {
 const toBinary = (schema: Schema, data: any): Uint8Array => {
   let w: WriteBuffer = {
     buffer: new Uint8Array(32),
-    pos: 0
+    pos: 0,
+    ids: new Map()
   }
 
   encodeInto(w, metaSchema.types, metaSchema.root, schema)
@@ -369,6 +377,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         let optionalBits = 0
 
         for (const field of type.fields) {
+          if (field.localOnly) continue
           const hasDefault = field.default !== undefined
           if (field.encodeMissingAsDefault != null && hasDefault) throw Error('Cannot set encodeMissingAsDefault when field has no default')
 
@@ -385,8 +394,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 
           let hasField = val[field.key] !== undefined
           // console.log('opt', field.key, hasField)
-          optionalBits = (optionalBits * 2) + (+hasField)
-
+          optionalBits = mixBit(optionalBits, !hasField)
           // console.log('optional bits', optionalBits)
         }
 
@@ -397,6 +405,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
       let numFieldsEncoded = 0
       // const encoded = []
       for (const field of type.fields) {
+        if (field.localOnly) continue
         let v = val[field.key]
 
         if (v === undefined) {
@@ -499,6 +508,28 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         break
       }
 
+      case 'id': {
+        // IDs are encoded as either a string or a number, depending on whether we've seen this ID before.
+        const existingId = w.ids.get(val)
+        if (existingId == null) {
+          // Encode it as a string, but with an extra 0 bit mixed into the length.
+          // This code is lifted from writeString(). It'd be nice to share this code, but .. that'd be gross too.
+          const strBytes = encoder.encode(val)
+          ensureCapacity(w, 9 + strBytes.length)
+          let n = mixBit(strBytes.length, false)
+          w.pos += varintEncodeInto(n, w.buffer, w.pos)
+          w.buffer.set(strBytes, w.pos)
+          w.pos += strBytes.length
+
+          let id = w.ids.size
+          w.ids.set(val, id)
+        } else {
+          let n = mixBit(existingId, true)
+          writeVarInt(w, n)
+        }
+        break
+      }
+
       default:
         throw Error('nyi')
     }
@@ -576,28 +607,6 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 }
 
 {
-  // {
-  //   x: -106.12151973486039,
-  //   y: 0.06565913602321416,
-  //   rotation: 0,
-  //   id: 'shape:aI0efwVMwVf-oReOkXBtn',
-  //   index: 'b0N',
-  //   type: 'text',
-  //   props: {
-  //     opacity: '1',
-  //     color: 'black',
-  //     size: 'xl',
-  //     w: 321,
-  //     text: 'Document',
-  //     font: 'draw',
-  //     align: 'start',
-  //     autoSize: true
-  //   },
-  //   typeName: 'shape',
-  //   parentId: 'page:Asc2ckmOb_rT-eRbpd4Ni'
-  // },
-
-
   const testSchema: Schema = {
     id: 'Shape',
     // root: ref('Shape'),
@@ -610,8 +619,8 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
           {key: 'x', valType: 'f32'},
           {key: 'y', valType: 'f32'},
           {key: 'rotation', valType: 'f32'},
-          {key: 'id', valType: 'string', default: ''},
-          {key: 'parentId', valType: 'string', default: ''},
+          {key: 'id', valType: 'id'},
+          {key: 'parentId', valType: 'id'},
           {key: 'index', valType: 'string'},
           {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
           {key: 'typeName', valType: enumOfStrings(['shape'])},
@@ -654,7 +663,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         fields: [
           {key: 'x', valType: 'f32'},
           {key: 'y', valType: 'f32'},
-          {key: 'binding', valType: 'string'},
+          {key: 'binding', valType: 'id'},
           {key: 'anchor', valType: {
             type: 'struct', encodeOptional: 'none',
             fields: [
