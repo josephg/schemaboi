@@ -46,7 +46,7 @@ interface EnumVariant {
 
 interface Enum {
   type: 'enum'
-
+  typeOnParent?: boolean
   variants: EnumVariant[]
 }
 
@@ -122,8 +122,9 @@ const metaSchema: Schema = {
       type: 'struct',
       encodeOptional: 'none',
       fields: [
+        // Upsettingly, this still shows up in the binary encoding of metaSchema.
+        {key: 'typeOnParent', valType: 'bool', localOnly: true},
         // {key: 'type', valType: 'string', localOnly: true},
-        // {key: 'type', valType: enumOfStrings(['enum'])},
         {key: 'variants', valType: {type: 'list', fieldType: ref('EnumVariant')}}
       ]
     },
@@ -298,7 +299,7 @@ const writeString = (w: WriteBuffer, str: string) => {
 //   }
 // }
 
-function findEnumVariant(val: string | Record<string, any>, type: Enum): number {
+function findEnumVariant(val: string | Record<string, any>, type: Enum, parent?: any): number {
   for (let i = 0; i < type.variants.length; i++) {
     const variant = type.variants[i]
 
@@ -306,7 +307,7 @@ function findEnumVariant(val: string | Record<string, any>, type: Enum): number 
     // or its an object with a 'type:' field matching one of the variant arms.
     if (typeof val === 'string') {
       if (val === variant.key) return i
-    } else if (typeof val === 'object' && val != null && val.type === variant.key) {
+    } else if (typeof val === 'object' && val != null && (type.typeOnParent ? parent : val).type === variant.key) {
       // We might need to check inner fields...
       return i
     }
@@ -316,7 +317,7 @@ function findEnumVariant(val: string | Record<string, any>, type: Enum): number 
   throw Error('Variant missing in schema')
 }
 
-const checkType = (val: any, type: SType | Struct | Enum) => {
+const checkType = (val: any, type: SType | Struct | Enum, parent?: any) => {
   if (typeof type === 'object' && type != null) {
     if (type.type === 'ref') throw Error('References not checked in checkType')
 
@@ -325,7 +326,7 @@ const checkType = (val: any, type: SType | Struct | Enum) => {
     } else if (type.type === 'list') {
       assert(Array.isArray(val))
     } else if (type.type === 'enum') {
-      findEnumVariant(val, type)
+      findEnumVariant(val, type, parent)
     } else if (type.type === 'map') {
       assert(type.keyType === 'string', 'Non-string keys in maps not implemented yet')
       // TODO: Or should we allow empty maps represented as null?
@@ -355,12 +356,15 @@ const toBinary = (schema: Schema, data: any): Uint8Array => {
 
   encodeInto(w, metaSchema.types, metaSchema.root, schema)
   console.log('schema', schema.id, 'size', w.pos)
+  const schemaPos = w.pos
   encodeInto(w, schema.types, schema.root, data)
+  console.log('data size', w.pos - schemaPos)
+  console.log('total size', w.pos)
 
   return w.buffer.slice(0, w.pos)
 }
 
-function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type: SType | Struct | Enum, val: any) {
+function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type: SType | Struct | Enum, val: any, parent?: any) {
   while (typeof type === 'object' && type != null && type.type === 'ref') {
     const actualType = oracle[type.key]
     // console.log(type)
@@ -369,7 +373,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
     type = actualType
   }
 
-  checkType(val, type)
+  checkType(val, type, parent)
 
   if (typeof type === 'object') {
     if (type.type === 'struct') {
@@ -427,7 +431,8 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         }
 
         // Recurse.
-        encodeInto(w, oracle, field.valType, v)
+        // console.log('recursing', field.key, v)
+        encodeInto(w, oracle, field.valType, v, val)
       }
 
       // const numFields = Object.keys(val).length
@@ -446,7 +451,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         encodeInto(w, oracle, type.fieldType, v)
       }
     } else if (type.type === 'enum') {
-      const variantNum = findEnumVariant(val, type)
+      const variantNum = findEnumVariant(val, type, parent)
       writeVarInt(w, variantNum)
 
       let variant = type.variants[variantNum]
@@ -539,7 +544,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
   }
 }
 
-{
+const exampleTest = () => {
   const testSchema: Schema = {
     id: 'example2',
     root: {type: 'ref', key: 'obj'},
@@ -602,14 +607,16 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
 }
 
 
-{
+const metaSchemaTest = () => {
   let out = toBinary(metaSchema, metaSchema)
   console.log('meta', out)
 
   fs.writeFileSync('metaschema.scb', out)
 }
 
-{
+// metaSchemaTest()
+
+const tldrawTest = () => {
   const testSchema: Schema = {
     id: 'Shape',
     // root: ref('Shape'),
@@ -625,40 +632,101 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
           {key: 'id', valType: 'id'},
           {key: 'parentId', valType: 'id'},
           {key: 'index', valType: 'string'},
-          {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
+          // {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
           {key: 'typeName', valType: enumOfStrings(['shape'])},
           {key: 'props', valType: ref('Props')},
         ]
       },
 
       Props: {
-        type: 'struct',
-        encodeOptional: 'bitfield',
-        fields: [
-          {key: 'opacity', valType: 'string'},
-          {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
-          {key: 'size', valType: enumOfStrings(['l', 'xl'])},
-          {key: 'w', valType: 'uint'},
-          {key: 'text', valType: 'string'},
-          {key: 'font', valType: 'string'},
-          {key: 'align', valType: enumOfStrings(['middle', 'start', 'end'])},
-          {key: 'autoSize', valType: 'bool'},
+        type: 'enum',
+        typeOnParent: true,
+        variants: [
+          {key: 'text', associatedData: {
+            type: 'struct',
+            encodeOptional: 'none',
+            fields: [
+              {key: 'opacity', valType: 'string'},
+              {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
+              {key: 'size', valType: enumOfStrings(['l', 'xl'])},
+              {key: 'w', valType: 'uint'},
+              {key: 'text', valType: 'string'},
+              {key: 'font', valType: 'string'},
+              {key: 'align', valType: enumOfStrings(['middle', 'start', 'end'])},
+              {key: 'autoSize', valType: 'bool'},
+            ]
+          }},
 
-          // These only show up sometimes.
-          {key: 'arrowheadStart', valType: enumOfStrings(['arrow', 'none'])},
-          {key: 'arrowheadEnd', valType: enumOfStrings(['arrow', 'none'])},
-          {key: 'dash', valType: enumOfStrings(['draw'])},
-          {key: 'fill', valType: enumOfStrings(['pattern', 'none'])},
-          {key: 'geo', valType: enumOfStrings(['ellipse', 'rectangle'])},
-          {key: 'growY', valType: 'uint'},
-          {key: 'bend', valType: 'f32'},
-          {key: 'h', valType: 'f32'},
+          {key: 'geo', associatedData: {
+            type: 'struct',
+            encodeOptional: 'none',
+            fields: [
+              {key: 'w', valType: 'f32'},
+              {key: 'h', valType: 'f32'},
+              {key: 'geo', valType: enumOfStrings(['ellipse', 'rectangle'])},
+              {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
+              {key: 'fill', valType: enumOfStrings(['pattern', 'none'])},
+              {key: 'dash', valType: enumOfStrings(['draw'])},
+              {key: 'size', valType: enumOfStrings(['l', 'xl'])},
+              {key: 'opacity', valType: 'string'}, // Why is this a string?
+              {key: 'font', valType: 'string'}, // Or enumOfStrings(['draw'])
+              {key: 'text', valType: 'string'},
+              {key: 'align', valType: enumOfStrings(['middle', 'start', 'end'])},
+              {key: 'growY', valType: 'uint'},
+            ]
+          }},
 
-          // Arrows
-          {key: 'start', valType: ref('ArrowEnd')},
-          {key: 'end', valType: ref('ArrowEnd')},
+          {key: 'arrow', associatedData: {
+            type: 'struct',
+            encodeOptional: 'none',
+            fields: [
+              {key: 'opacity', valType: 'string'}, // Why is this a string?
+              {key: 'dash', valType: enumOfStrings(['draw'])},
+              {key: 'size', valType: enumOfStrings(['l', 'xl'])},
+              {key: 'fill', valType: enumOfStrings(['pattern', 'none'])},
+              {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
+              {key: 'w', valType: 'f32'},
+              {key: 'h', valType: 'f32'},
+              {key: 'bend', valType: 'f32'},
+
+              {key: 'start', valType: ref('ArrowEnd')},
+              {key: 'end', valType: ref('ArrowEnd')},
+
+              {key: 'arrowheadStart', valType: enumOfStrings(['arrow', 'none'])},
+              {key: 'arrowheadEnd', valType: enumOfStrings(['arrow', 'none'])},
+            ]
+          }}
         ]
       },
+
+      // Props: {
+      //   type: 'struct',
+      //   encodeOptional: 'bitfield',
+      //   fields: [
+      //     {key: 'opacity', valType: 'string'},
+      //     {key: 'color', valType: enumOfStrings(['light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'])},
+      //     {key: 'size', valType: enumOfStrings(['l', 'xl'])},
+      //     {key: 'w', valType: 'uint'},
+      //     {key: 'text', valType: 'string'},
+      //     {key: 'font', valType: 'string'},
+      //     {key: 'align', valType: enumOfStrings(['middle', 'start', 'end'])},
+      //     {key: 'autoSize', valType: 'bool'},
+
+      //     // These only show up sometimes.
+      //     {key: 'arrowheadStart', valType: enumOfStrings(['arrow', 'none'])},
+      //     {key: 'arrowheadEnd', valType: enumOfStrings(['arrow', 'none'])},
+      //     {key: 'dash', valType: enumOfStrings(['draw'])},
+      //     {key: 'fill', valType: enumOfStrings(['pattern', 'none'])},
+      //     {key: 'geo', valType: enumOfStrings(['ellipse', 'rectangle'])},
+      //     {key: 'growY', valType: 'uint'},
+      //     {key: 'bend', valType: 'f32'},
+      //     {key: 'h', valType: 'f32'},
+
+      //     // Arrows
+      //     {key: 'start', valType: ref('ArrowEnd')},
+      //     {key: 'end', valType: ref('ArrowEnd')},
+      //   ]
+      // },
 
       ArrowEnd: {
         type: 'struct',
@@ -687,3 +755,5 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
   fs.writeFileSync('tld.scb', out)
 
 }
+
+tldrawTest()
