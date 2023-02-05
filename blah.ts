@@ -92,6 +92,7 @@ const metaSchema: Schema = {
       type: 'struct',
       encodeOptional: 'none',
       fields: [
+        // {key: 'type', valType: 'string', localOnly: true},
         {key: 'key', valType: 'string'},
       ]
     },
@@ -121,6 +122,7 @@ const metaSchema: Schema = {
       type: 'struct',
       encodeOptional: 'none',
       fields: [
+        // {key: 'type', valType: 'string', localOnly: true},
         // {key: 'type', valType: enumOfStrings(['enum'])},
         {key: 'variants', valType: {type: 'list', fieldType: ref('EnumVariant')}}
       ]
@@ -130,6 +132,7 @@ const metaSchema: Schema = {
       type: 'struct',
       encodeOptional: 'bitfield',
       fields: [
+        // {key: 'type', valType: 'string', localOnly: true}, // For now!
         {key: 'fields', valType: {type: 'list', fieldType: ref('Field')}},
         {key: 'encodeOptional', valType: enumOfStrings(['bitfield', 'none'])}
       ]
@@ -402,7 +405,7 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
         writeVarInt(w, optionalBits)
       } else if (type.encodeOptional !== 'none') throw Error('unknown encodeOptional value')
 
-      let numFieldsEncoded = 0
+      // let numFieldsEncoded = 0
       // const encoded = []
       for (const field of type.fields) {
         if (field.localOnly) continue
@@ -420,20 +423,20 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
           }
         } else {
           // encoded.push(field.key)
-          numFieldsEncoded += 1
+          // numFieldsEncoded += 1
         }
 
         // Recurse.
         encodeInto(w, oracle, field.valType, v)
       }
 
-
-      const numFields = Object.keys(val).length
-      if (numFields > numFieldsEncoded) {
+      // const numFields = Object.keys(val).length
+      const missingKeys = Object.keys(val)
+        .filter(k => k !== 'type' && (type as Struct).fields.find(f => f.key === k) == null)
+      if (missingKeys.length > 0) {
         // console.log('keys', Object.keys(val), 'encoded', encoded)
-        const missingKeys = Object.keys(val)
-          .filter(k => (type as Struct).fields.find(f => f.key === k) == null)
-        console.warn('Did not encode all fields in object: missing', missingKeys) //, numFields, numFieldsEncoded)
+        // console.warn('Did not encode all fields in object: missing', missingKeys, val, type) //, numFields, numFieldsEncoded)
+        console.warn('Did not encode all fields in object: missing', missingKeys, val)
       }
     } else if (type.type === 'list') {
       // Length prefixed list of entries.
