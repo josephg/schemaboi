@@ -60,6 +60,7 @@ export interface SchemaToJS {
   types: Record<string, {
     fields: Record<string, {
       defaultValue?: any, // If the field is missing in the data set, use this value instead of null.
+      fieldName?: string, // Overrides the field's key name in schema
     }>
   }>
 }
@@ -202,20 +203,53 @@ interface ReadState {
 }
 
 
-function readStruct(state: ReadState, key: string, schema: StructSchema): Record<string, any> {
-  const result: Record<string, any> = {}
+function readStruct(state: ReadState, key: string, schema: StructSchema): Record<string, any> | null {
+  const toJs = state.toJs.types[key]
+  // I'm still not sure what we should do in this case. We may still need the data
+  //
+  // There are essentially 3 options:
+  // 1. Skip the data, returning nothing. But when used in a load-then-save use case,
+  //    this will discard any foreign data.
+  // 2. Parse the data but return it in a special way - eg {_external: {/* unknown fields */}}
+  // 3. Return the array buffer containing the data, but don't parse it.
+
+  if (toJs == null) throw Error('NYI no toJs for struct')
 
   const encoding = state.encoding.types[key]
   if (encoding == null) throw Error('Missing encoding information for schema type ' + key)
 
+  const result: Record<string, any> | null = toJs == null ? null : {}
+
   if (encoding.optionalOrder.length > 0) throw Error('nyi optional fields')
+
+  const expectedJsFields = new Set(Object.keys(toJs.fields))
+
   for (const f of encoding.fieldOrder) {
     // We always read all the fields, since we need to update the read position regardless of if we use the output.
     const type = schema.fields[f]
     if (type == null) throw Error('Missing field in schema')
 
-    // if (state.toJs
-    result[f] = readThing(state, type.type)
+    const thing = readThing(state, type.type)
+
+    const toJsField = toJs.fields[f]
+    if (toJsField != null) {
+      if (toJsField.fieldName != null) result![toJsField.fieldName] = thing
+      else result![f] = thing
+    } else {
+      console.warn('Unknown field', f, 'in struct', key)
+      if (result!._external == null) result!._external = {}
+      result!._external[f] = thing
+    }
+
+    expectedJsFields.delete(f)
+  }
+
+  for (const f of expectedJsFields) {
+    // Any fields here are fields the application expects but are missing from the file's schema.
+    const toJsField = toJs.fields[f]
+    const val = toJsField.defaultValue != null ? toJsField.defaultValue : null
+    const name = toJsField.fieldName ?? f
+    result![name] = val
   }
 
   return result
@@ -348,4 +382,65 @@ const testRead = () => {
   console.log(readData(encoding, schema, toJs, b))
 }
 
-testRead()
+// testRead()
+
+const testRead2 = () => {
+  const fileSchema: Schema = {
+    id: 'Example',
+    root: ref('Contact'),
+    types: {
+      Contact: {
+        type: 'struct',
+        fields: {
+          name: {type: 'string'},
+          age: {type: 'uint'}
+          // address: {type: 'string'},
+        }
+      }
+    }
+  }
+
+  const appSchema: Schema = {
+    id: 'Example',
+    root: ref('Contact'),
+    types: {
+      Contact: {
+        type: 'struct',
+        fields: {
+          // name: {type: 'string'},
+          age: {type: 'uint'},
+          address: {type: 'string'},
+        }
+      }
+    }
+  }
+
+  const encoding: SchemaEncoding = {
+    id: 'Example',
+    types: {
+      Contact: {
+        fieldOrder: ['age', 'name'],
+        optionalOrder: []
+      }
+    }
+  }
+
+  const toJs: SchemaToJS = {
+    id: 'Example',
+    types: {
+      Contact: {
+        fields: {
+          age: { fieldName: 'yearsOld' },
+          address: { defaultValue: 'unknown location' },
+        }
+      }
+    }
+  }
+
+  const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
+
+  const mergedSchema = mergeSchemas(appSchema, fileSchema)
+  console.log(readData(encoding, mergedSchema, toJs, b))
+}
+
+testRead2()
