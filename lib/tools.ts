@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { ref } from "./schema.js"
+import { Oracle, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
 const console = new Console({
@@ -8,63 +8,6 @@ const console = new Console({
   stderr: process.stderr,
   inspectOptions: {depth: null}
 })
-
-export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
-
-export type SType = Primitive
-  // | {type: 'list', fieldType: SType}
-  | {type: 'ref', key: string} // Reference to another type in the type oracle.
-  // | MapType
-
-export interface StructSchema {
-  type: 'struct'
-  fields: Record<string, {
-    type: SType,
-  }>
-  // default?
-}
-
-type Oracle = Record<string, StructSchema>
-export interface Schema {
-  id: string,
-  root: SType
-  types: Oracle
-  // types: Record<string, Struct | Enum>
-}
-
-
-// *** File to schema mapping ***
-
-export interface StructEncoding {
-  // Any fields not listed here are not included in the file data, and should be null, default or error.
-  //
-  // The order here is important. Fields are listed in the order that their data is written to the file.
-  //
-  // TODO: Bit pack adjacent booleans.
-  fieldOrder: string[],
-  optionalOrder: string[],
-}
-
-export interface SchemaEncoding {
-  id: string,
-  types: Record<string, StructEncoding>
-}
-
-
-
-// *** Schema to javascript mapping ***
-
-export interface SchemaToJS {
-  id: string,
-  // TODO.
-  types: Record<string, {
-    fields: Record<string, {
-      defaultValue?: any, // If the field is missing in the data set, use this value instead of null.
-      fieldName?: string, // Overrides the field's key name in schema
-    }>
-  }>
-}
-
 
 
 
@@ -291,6 +234,16 @@ function readData(encoding: SchemaEncoding, schema: Schema, toJs: SchemaToJS, da
 
   return readThing(state, schema.root)
 }
+
+
+// *** Writing code
+
+
+
+
+
+
+
 
 
 {
