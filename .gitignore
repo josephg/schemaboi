@@ -1,5 +1,5 @@
-*.js
-yarn.lock
+dist
 node_modules
-*.js.map
+
+yarn.lock
 out.scb
