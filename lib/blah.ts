@@ -157,15 +157,17 @@ const checkType = (val: any, type: SType | Struct | Enum, parent?: any) => {
   }
 }
 
-const toBinary = (schema: Schema, data: any): Uint8Array => {
+const toBinary = (schema: Schema, data: any, encodeSchema: boolean = true): Uint8Array => {
   let w: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0,
     ids: new Map()
   }
 
-  encodeInto(w, metaSchema.types, metaSchema.root, schema)
-  console.log('schema', schema.id, 'size', w.pos)
+  if (encodeSchema) {
+    encodeInto(w, metaSchema.types, metaSchema.root, schema)
+    console.log('schema', schema.id, 'size', w.pos)
+  }
   const schemaPos = w.pos
   encodeInto(w, schema.types, schema.root, data)
   console.log('data size', w.pos - schemaPos)
@@ -354,7 +356,37 @@ function encodeInto(w: WriteBuffer, oracle: Record<string, Struct | Enum>, type:
   }
 }
 
-const exampleTest = () => {
+const exampleTest1 = () => {
+  const testSchema: Schema = {
+    id: 'example',
+    root: {type: 'ref', key: 'Obj'},
+    types: {
+      Obj: {
+        type: 'struct',
+        encodeOptional: 'none',
+        fields: [
+          {key: 'x', valType: 'uint'},
+          {key: 'name', valType: 'string'},
+        ]
+      },
+    }
+  }
+
+  let out = toBinary(testSchema, {
+    x: 123,
+    name: 'seph',
+  }, false)
+
+  console.log(out)
+
+  fs.writeFileSync('test1.scb', out)
+
+  // console.log(testShape)
+}
+
+exampleTest1()
+
+const exampleTest2 = () => {
   const testSchema: Schema = {
     id: 'example2',
     root: {type: 'ref', key: 'obj'},
@@ -416,6 +448,7 @@ const exampleTest = () => {
   // console.log(testShape)
 }
 
+// exampleTest2()
 
 const metaSchemaTest = () => {
   let out = toBinary(metaSchema, metaSchema)
@@ -566,4 +599,4 @@ const tldrawTest = () => {
 
 }
 
-tldrawTest()
+// tldrawTest()
