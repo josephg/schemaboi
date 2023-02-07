@@ -1,4 +1,4 @@
-import { varintEncodeInto, zigzagEncode } from "./varint.js"
+import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
 import { Oracle, Primitive, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructSchema, StructToJS, SType } from "./schema.js"
 import assert from 'assert/strict'
 
@@ -45,37 +45,6 @@ const writeString = (w: WriteBuffer, str: string) => {
   w.buffer.set(strBytes, w.pos)
   w.pos += strBytes.length
 }
-
-// const checkType = (val: any, type: SType | Struct | Enum, parent?: any) => {
-//   if (typeof type === 'object' && type != null) {
-//     if (type.type === 'ref') throw Error('References not checked in checkType')
-
-//     if (type.type === 'struct') {
-//       assert(typeof val === 'object' && val != null && !Array.isArray(val))
-//     } else if (type.type === 'list') {
-//       assert(Array.isArray(val))
-//     } else if (type.type === 'enum') {
-//       findEnumVariant(val, type, parent)
-//     } else if (type.type === 'map') {
-//       assert(type.keyType === 'string', 'Non-string keys in maps not implemented yet')
-//       // TODO: Or should we allow empty maps represented as null?
-//       assert(typeof val === 'object' && val != null && !Array.isArray(val))
-//     } else {
-//       console.error(type)
-//       throw Error('nyi')
-//     }
-//   } else {
-//     // console.log('val', val, 'type', type)
-//     switch (type) {
-//       case 'uint': case 'sint': case 'f32': case 'f64':
-//         assert(typeof val === 'number'); break
-//       case 'bool': assert(typeof val === 'boolean'); break
-//       case 'string': case 'id': assert(typeof val === 'string'); break
-//       default: throw Error(`case missing in checkType: ${type}`)
-//     }
-//   }
-// }
-
 
 /** This function generates a trivial schema encoding for the specified schema. It will not be optimized */
 function simpleSchemaEncoding(schema: Schema): SchemaEncoding {
@@ -164,7 +133,19 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
 function encodeStruct(state: EncodingState, val: Record<string, any>, schema: StructSchema, toJs: StructToJS, encoding: StructEncoding) {
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
-  if (encoding.optionalOrder.length) throw Error('nyi')
+  if (encoding.optionalOrder.length) {
+    if (encoding.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
+    let optionalBits = 0
+
+    // If any fields are optional, all the data is prefixed by a set of optional bits describing which fields exist.
+    for (const k of encoding.fieldOrder) {
+      const fieldName = toJs.fields[k].fieldName ?? k
+      const fieldMissing = val[fieldName] === undefined
+      optionalBits = mixBit(optionalBits, fieldMissing)
+    }
+
+    writeVarInt(state.writer, optionalBits)
+  }
 
   const optionalFields = new Set(encoding.optionalOrder)
 
@@ -239,7 +220,7 @@ const simpleTest = () => {
     types: {
       Contact: {
         fieldOrder: ['age', 'name'],
-        optionalOrder: []
+        optionalOrder: ['name']
       }
     }
   }

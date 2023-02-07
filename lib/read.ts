@@ -243,21 +243,6 @@ function readData(encoding: SchemaEncoding, schema: Schema, toJs: SchemaToJS, da
 
 
 
-
-
-
-{
-  const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
-  const r: Reader = {
-    pos: 0,
-    data: new DataView(b.buffer, b.byteOffset, b.byteLength)
-  }
-
-  // console.log(readVarInt(r), readString(r), r)
-}
-
-
-
 const testMergeSchema = () => {
   const a: Schema = {
     id: 'Example',
