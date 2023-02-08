@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { Oracle, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
+import { List, Oracle, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
 const console = new Console({
@@ -24,7 +24,9 @@ const typesShallowEq = (a: SType, b: SType): boolean => {
   if (a.type !== b.type) return false
   switch (a.type) {
     case 'ref':
-      return a.key === b.key
+      return a.key === (b as Ref).key
+    case 'list':
+      return typesShallowEq(a.fieldType, (b as List).fieldType)
     // Other cases (when added) will generate a type error.
   }
 }
@@ -54,8 +56,10 @@ const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean 
 
   switch (a.type) {
     case 'ref':
-      if (a.key !== b.key) return false
+      if (a.key !== (b as Ref).key) return false
       return structEq(aOracle[a.key], bOracle[a.key])
+    case 'list':
+      return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
     // Other cases (when added) will generate a type error.
   }
 }

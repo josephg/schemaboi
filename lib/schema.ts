@@ -1,10 +1,19 @@
 
+/* TODO:
+
+- ~Struct~
+- ~List~
+- Enum
+- Map
+
+*/
+
+
 export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
 
-export type SType = Primitive
-  // | {type: 'list', fieldType: SType}
-  | {type: 'ref', key: string} // Reference to another type in the type oracle.
-  // | MapType
+export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
+export type List = {type: 'list', fieldType: SType}
+export type SType = Primitive | Ref | List
 
 export interface StructSchema {
   type: 'struct'

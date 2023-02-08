@@ -2,6 +2,13 @@ import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
 import { Oracle, Primitive, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructSchema, StructToJS, SType } from "./schema.js"
 import assert from 'assert/strict'
 
+import {Console} from 'node:console'
+const console = new Console({
+  stdout: process.stdout,
+  stderr: process.stderr,
+  inspectOptions: {depth: null}
+})
+
 interface WriteBuffer {
   buffer: Uint8Array,
   pos: number,
@@ -160,15 +167,33 @@ function encodeStruct(state: EncodingState, val: Record<string, any>, schema: St
 
     const type = schema.fields[k].type
 
-    if (typeof type === 'object') {
-      if (type.type !== 'ref') throw Error('nyi')
+    encodeThing(state, v, type)
+  }
+}
 
-      // Recurse.
-      const innerType = type.key
-      encodeStruct(state, v, state.schema.types[innerType], state.toJs.types[innerType], state.encoding.types[innerType])
-    } else {
-       encodePrimitive(state.writer, v, type)
+function encodeThing(state: EncodingState, val: any, type: SType) {
+  if (typeof type === 'object') { // Animal, mineral or vegetable...
+    switch (type.type) {
+      case 'ref': {
+        const rootType = type.key
+        encodeStruct(state, val, state.schema.types[rootType], state.toJs.types[rootType], state.encoding.types[rootType])
+        break
+      }
+      case 'list': {
+        if (!Array.isArray(val)) throw Error('Cannot encode item as list')
+        writeVarInt(state.writer, val.length)
+        // TODO: Consider special-casing bit arrays.
+        for (const v of val) {
+          encodeThing(state, v, type.fieldType)
+        }
+        break
+      }
+      default:
+        const exhaustiveCheck: never = type;
+        throw new Error('unhandled case');
     }
+  } else {
+    encodePrimitive(state.writer, val, type)
   }
 }
 
@@ -187,13 +212,7 @@ function toBinary(schema: Schema, toJs: SchemaToJS, data: any, encoding: SchemaE
     writer, encoding, schema, toJs
   }
 
-  // TODO: There's nicer ways to factor this.
-  if (isRef(schema.root)) {
-    const rootType = schema.root.key
-    encodeStruct(state, data, schema.types[rootType], toJs.types[rootType], encoding.types[rootType])
-  } else {
-    encodePrimitive(writer, data, schema.root)
-  }
+  encodeThing(state, data, schema.root)
 
   return writer.buffer.slice(0, writer.pos)
 }
@@ -242,4 +261,43 @@ const simpleTest = () => {
   console.log(toBinary(schema, toJs, data, encoding))
 }
 
-simpleTest()
+
+
+const kitchenSinkTest = () => {
+  const schema: Schema = {
+    id: 'Example',
+    root: ref('Contact'),
+    types: {
+      Contact: {
+        type: 'struct',
+        fields: {
+          name: {type: 'string'},
+          age: {type: 'uint'},
+          addresses: {type: {type: 'list', fieldType: 'string'}}
+          // address: {type: 'string'},
+        }
+      }
+    }
+  }
+
+  const toJs: SchemaToJS = {
+    id: 'Example',
+    types: {
+      Contact: {
+        fields: {
+          name: {},
+          age: {},
+          addresses: {}
+        }
+      }
+    }
+  }
+
+  const data = {name: 'seph', age: 21, addresses: ['123 Example St', '456 Somewhere else']}
+
+  console.log(toBinary(schema, toJs, data))
+}
+
+// simpleTest()
+kitchenSinkTest()
+
