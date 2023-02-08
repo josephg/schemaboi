@@ -19,7 +19,26 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
-  // Trivial examples.
+  const schema: PureSchema = {
+    id: 'Example',
+    root: {type: 'list', fieldType: 'f64'},
+    types: {}
+  }
+
+  testRoundTrip(schema, [1.1, 2.2, 3,3])
+}
+
+{
+  const schema: PureSchema = {
+    id: 'Example',
+    root: 'string',
+    types: {}
+  }
+
+  testRoundTrip(schema, 'hi there')
+}
+
+{
   const schema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),
@@ -33,9 +52,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
     }
   }
 
-  const data = {name: 'seph'}
-
-  // testRoundTrip(schema, data)
+  testRoundTrip(schema, {name: 'seph'})
 }
 
 {

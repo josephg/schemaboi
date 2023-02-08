@@ -98,6 +98,16 @@ function readThing(r: Reader, schema: Schema, type: SType): any {
       case 'uint': return readVarInt(r)
       case 'sint': return zigzagDecode(readVarInt(r))
       case 'string': return readString(r)
+      case 'f32': {
+        const result = r.data.getFloat32(r.pos, true)
+        r.pos += 4
+        return result
+      }
+      case 'f64': {
+        const result = r.data.getFloat64(r.pos, true)
+        r.pos += 8
+        return result
+      }
       default: throw Error('NYI readThing for ' + type)
     }
   } else {
