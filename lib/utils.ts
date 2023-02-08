@@ -1,4 +1,4 @@
-import { List, Oracle, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructToJS, SType } from "./schema.js"
+import { List, Oracle, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
 
 function mergeStructs(a: StructPureSchema, b: StructPureSchema): StructPureSchema {
   console.log('merge', a, b)
@@ -54,7 +54,7 @@ export function mergeSchemas(a: PureSchema | Schema, b: PureSchema | Schema): Pu
 
 
 /** This function generates a trivial schema encoding for the specified schema. It will not be optimized */
-export function simpleSchemaEncoding(schema: Schema | PureSchema): SchemaEncoding {
+export function simpleSchemaEncoding(schema: PureSchema): SchemaEncoding {
   const result: SchemaEncoding = {
     id: schema.id,
     types: {}
@@ -73,7 +73,7 @@ export function simpleSchemaEncoding(schema: Schema | PureSchema): SchemaEncodin
 }
 
 /** The resulting JS map assumes we know all fields, everything is nullable and nothing is renamed. */
-export function simpleJsMap(schema: Schema | PureSchema): SchemaToJS {
+export function simpleJsMap(schema: PureSchema): SchemaToJS {
   const result: SchemaToJS = {
     id: schema.id,
     types: {}
@@ -112,7 +112,7 @@ export function combine(schema: PureSchema, encoding: SchemaEncoding, toJs: Sche
     const e = encoding.types[name]
     const j = toJs.types[name] ?? {known: false, fields: {}}
     if (s.type === 'struct') {
-      const struct: StructPureSchema & StructEncoding & StructToJS = result.types[name] = {
+      const struct: StructSchema = result.types[name] = {
         type: s.type,
         known: j.known,
         fieldOrder: e.fieldOrder,

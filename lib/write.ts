@@ -120,9 +120,14 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
     let optionalBits = 0
 
     // If any fields are optional, all the data is prefixed by a set of optional bits describing which fields exist.
-    for (const k of struct.fieldOrder) {
+    //
+    // The bits are packed from least to most significant, in order of the the optionalBits fields.
+    for (let i = struct.optionalOrder.length - 1; i >= 0; --i) {
+      const k = struct.optionalOrder[i]
+
       const fieldName = struct.fields[k].renameFieldTo ?? k
-      const fieldMissing = val[fieldName] === undefined
+      const fieldMissing = val[fieldName] == null
+      // console.log(i, 'k', k, fieldMissing)
       optionalBits = mixBit(optionalBits, fieldMissing)
     }
 
@@ -176,7 +181,7 @@ const isRef = (x: SType): x is {type: 'ref', key: string} => (
   typeof x !== 'string' && x.type === 'ref'
 )
 
-function toBinary(schema: Schema, data: any): Uint8Array {
+export function toBinary(schema: Schema, data: any): Uint8Array {
   const writer: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0,
@@ -258,6 +263,6 @@ const kitchenSinkTest = () => {
   console.log(toBinary(simpleFullSchema(schema), data))
 }
 
-simpleTest()
+// simpleTest()
 // kitchenSinkTest()
 
