@@ -1,121 +1,14 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { List, Oracle, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
+import { List, Oracle, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
+import { combine, mergeSchemas } from "./utils.js"
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
   inspectOptions: {depth: null}
 })
-
-
-
-// **************************
-
-
-const isRef = (x: SType): x is {type: 'ref', key: string} => (
-  typeof x !== 'string' && x.type === 'ref'
-)
-
-const typesShallowEq = (a: SType, b: SType): boolean => {
-  if (a === b) return true
-  if (typeof a === 'string' || typeof b === 'string') return false
-  if (a.type !== b.type) return false
-  switch (a.type) {
-    case 'ref':
-      return a.key === (b as Ref).key
-    case 'list':
-      return typesShallowEq(a.fieldType, (b as List).fieldType)
-    // Other cases (when added) will generate a type error.
-  }
-}
-
-const mergedKeys = <T = any>(a: Record<string, T>, b: Record<string, T>): Iterable<string> => (
-  new Set([...Object.keys(a), ...Object.keys(b)])
-)
-
-const structEq = (a: StructSchema, b: StructSchema): boolean => {
-  for (const k of mergedKeys(a.fields, b.fields)) {
-    let af = a.fields[k]
-    let bf = b.fields[k]
-    if (af == null || bf == null) return false
-
-    if (!typesShallowEq(af.type, bf.type)) return false
-  }
-
-  // console.log('struct eq')
-
-  return true
-}
-
-const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean => {
-  if (a === b) return true
-  if (typeof a === 'string' || typeof b === 'string') return false
-  if (a.type !== b.type) return false
-
-  switch (a.type) {
-    case 'ref':
-      if (a.key !== (b as Ref).key) return false
-      return structEq(aOracle[a.key], bOracle[a.key])
-    case 'list':
-      return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
-    // Other cases (when added) will generate a type error.
-  }
-}
-
-function mergeStructs(a: StructSchema, b: StructSchema): StructSchema {
-  console.log('merge', a, b)
-  // Merge them.
-  const out: StructSchema = {
-    type: 'struct',
-    fields: {}
-  }
-
-  // console.log('merge structs', a.fields, b.fields, mergedKeys(a.fields, b.fields))
-  for (const f of mergedKeys(a.fields, b.fields)) {
-    const af = a.fields[f]
-    const bf = b.fields[f]
-    // console.log('f', f, af, bf)
-
-    if (af == null) out.fields[f] = bf
-    else if (bf == null) out.fields[f] = af
-    else {
-      // Check the fields are compatible.
-      if (!typesShallowEq(af.type, bf.type)) throw Error('Incompatible types in struct field')
-      // Keep either.
-      out.fields[f] = af
-    }
-  }
-
-  return out
-}
-
-function mergeSchemas(a: Schema, b: Schema): Schema {
-  if (a.id != b.id) throw Error('Incompatible schemas')
-  if (!typesShallowEq(a.root, b.root)) throw Error('Incompatible root elements')
-
-  // I'm going to use A's naming system. (Its possible for both schemas to use different type names).
-  //
-  // And I'm going to copy all types from both schemas.
-  const out: Schema = {
-    id: a.id,
-    root: a.root, // Ok since a.root shallow eq b.root.
-    types: {}
-  }
-
-  for (const key of mergedKeys(a.types, b.types)) {
-    const aa = a.types[key]
-    const bb = b.types[key]
-
-    if (aa == null) out.types[key] = bb
-    else if (bb == null || structEq(aa, bb)) out.types[key] = aa
-    else out.types[key] = mergeStructs(aa, bb)
-  }
-
-  return out
-}
-
 
 
 interface Reader {
@@ -140,51 +33,35 @@ function readString(r: Reader): string {
   return textDecoder.decode(buf)
 }
 
-
-
-interface ReadState {
-  encoding: SchemaEncoding
-  schema: Schema
-  toJs: SchemaToJS
-  reader: Reader
-}
-
-
-function readStruct(state: ReadState, key: string, schema: StructSchema): Record<string, any> | null {
-  const toJs = state.toJs.types[key]
-  // I'm still not sure what we should do in this case. We may still need the data
+function readStruct(r: Reader, schema: Schema, key: string, struct: StructSchema): Record<string, any> | null {
+  // I'm still not sure what we should do in this case. We may still need the data!
   //
   // There are essentially 3 options:
   // 1. Skip the data, returning nothing. But when used in a load-then-save use case,
   //    this will discard any foreign data.
   // 2. Parse the data but return it in a special way - eg {_external: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
+  if (!struct.known) throw Error('NYI struct is not locally recognised!')
 
-  if (toJs == null) throw Error('NYI no toJs for struct')
+  const result: Record<string, any> | null = !struct.known ? null : {}
 
-  const encoding = state.encoding.types[key]
-  if (encoding == null) throw Error('Missing encoding information for schema type ' + key)
+  if (struct.optionalOrder.length > 0) throw Error('nyi optional fields')
 
-  const result: Record<string, any> | null = toJs == null ? null : {}
+  // This is just for debugging.
+  const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => struct.fields[k].known))
 
-  if (encoding.optionalOrder.length > 0) throw Error('nyi optional fields')
-
-  const expectedJsFields = new Set(Object.keys(toJs.fields))
-
-  for (const f of encoding.fieldOrder) {
+  for (const f of struct.fieldOrder) {
     // We always read all the fields, since we need to update the read position regardless of if we use the output.
-    const type = schema.fields[f]
+    const type = struct.fields[f]
     if (type == null) throw Error('Missing field in schema')
 
-    const thing = readThing(state, type.type)
+    const thing = readThing(r, schema, type.type)
 
-    const toJsField = toJs.fields[f]
-    if (toJsField != null) {
-      if (toJsField.fieldName != null) result![toJsField.fieldName] = thing
-      else result![f] = thing
+    if (type.known) {
+      result![type.renameFieldTo ?? f] = thing
     } else {
       console.warn('Unknown field', f, 'in struct', key)
-      if (result!._external == null) result!._external = {}
+      result!._external ??= {}
       result!._external[f] = thing
     }
 
@@ -193,28 +70,26 @@ function readStruct(state: ReadState, key: string, schema: StructSchema): Record
 
   for (const f of expectedJsFields) {
     // Any fields here are fields the application expects but are missing from the file's schema.
-    const toJsField = toJs.fields[f]
-    const val = toJsField.defaultValue != null ? toJsField.defaultValue : null
-    const name = toJsField.fieldName ?? f
-    result![name] = val
+    const type = struct.fields[f]
+    result![type.renameFieldTo ?? f] = type.defaultValue ?? null
   }
 
   return result
 }
 
-function readThing(state: ReadState, type: SType): any {
+function readThing(r: Reader, schema: Schema, type: SType): any {
   if (typeof type === 'string') {
     switch (type) {
-      case 'uint': return readVarInt(state.reader)
-      case 'sint': return zigzagDecode(readVarInt(state.reader))
-      case 'string': return readString(state.reader)
+      case 'uint': return readVarInt(r)
+      case 'sint': return zigzagDecode(readVarInt(r))
+      case 'string': return readString(r)
       default: throw Error('NYI readThing for ' + type)
     }
   } else {
     switch (type.type) {
       case 'ref': {
-        const inner = state.schema.types[type.key]
-        if (inner.type === 'struct') return readStruct(state, type.key, inner)
+        const inner = schema.types[type.key]
+        if (inner.type === 'struct') return readStruct(r, schema, type.key, inner)
         // Else compile error!
         break
       }
@@ -222,62 +97,17 @@ function readThing(state: ReadState, type: SType): any {
   }
 }
 
-function readData(encoding: SchemaEncoding, schema: Schema, toJs: SchemaToJS, data: Uint8Array): any {
-  if (encoding.id !== schema.id || schema.id !== toJs.id) {
-    throw Error('Inconsistent schema ID in input')
-  }
-
+function readData(schema: Schema, data: Uint8Array): any {
   const reader: Reader = {
     pos: 0,
     data: new DataView(data.buffer, data.byteOffset, data.byteLength)
   }
 
-  const state: ReadState = {
-    encoding, schema, toJs, reader
-  }
-
-  return readThing(state, schema.root)
+  return readThing(reader, schema, schema.root)
 }
 
 
-// *** Writing code
-
-
-
-
-
-
-const testMergeSchema = () => {
-  const a: Schema = {
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          name: {type: 'string'},
-          address: {type: 'string'},
-        }
-      }
-    }
-  }
-
-  const b: Schema = {
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          name: {type: 'string'},
-          phoneNo: {type: 'string'},
-        }
-      }
-    }
-  }
-
-  console.log(mergeSchemas(a, b))
-}
+// ***** Testing code ******
 
 
 
@@ -288,46 +118,26 @@ const testRead = () => {
     types: {
       Contact: {
         type: 'struct',
+        known: true,
+        fieldOrder: ['age', 'name'],
+        optionalOrder: [],
+
         fields: {
-          name: {type: 'string'},
-          age: {type: 'uint'}
+          name: {type: 'string', known: true},
+          age: {type: 'uint', known: true}
           // address: {type: 'string'},
         }
       }
     }
   }
 
-  const encoding: SchemaEncoding = {
-    id: 'Example',
-    types: {
-      Contact: {
-        fieldOrder: ['age', 'name'],
-        optionalOrder: []
-      }
-    }
-  }
+  const data = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
 
-  const toJs: SchemaToJS = {
-    id: 'Example',
-    types: {
-      Contact: {
-        fields: {
-          name: {},
-          age: {}
-        }
-      }
-    }
-  }
-
-  const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
-
-  console.log(readData(encoding, schema, toJs, b))
+  console.log(readData(schema, data))
 }
 
-// testRead()
-
 const testRead2 = () => {
-  const fileSchema: Schema = {
+  const fileSchema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -342,7 +152,7 @@ const testRead2 = () => {
     }
   }
 
-  const appSchema: Schema = {
+  const appSchema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -371,9 +181,10 @@ const testRead2 = () => {
     id: 'Example',
     types: {
       Contact: {
+        known: true,
         fields: {
-          age: { fieldName: 'yearsOld' },
-          address: { defaultValue: 'unknown location' },
+          age: { known: true, renameFieldTo: 'yearsOld' },
+          address: { known: true, defaultValue: 'unknown location' },
         }
       }
     }
@@ -382,7 +193,9 @@ const testRead2 = () => {
   const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
 
   const mergedSchema = mergeSchemas(appSchema, fileSchema)
-  console.log(readData(encoding, mergedSchema, toJs, b))
+  const fullSchema = combine(mergedSchema, encoding, toJs)
+  console.log(readData(fullSchema, b))
 }
 
+testRead()
 testRead2()

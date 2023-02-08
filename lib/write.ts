@@ -1,8 +1,9 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { Oracle, Primitive, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructSchema, StructToJS, SType } from "./schema.js"
+import { Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
 import assert from 'assert/strict'
 
 import {Console} from 'node:console'
+import { combine, simpleFullSchema } from "./utils.js"
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
@@ -53,25 +54,6 @@ const writeString = (w: WriteBuffer, str: string) => {
   w.pos += strBytes.length
 }
 
-/** This function generates a trivial schema encoding for the specified schema. It will not be optimized */
-function simpleSchemaEncoding(schema: Schema): SchemaEncoding {
-  const result: SchemaEncoding = {
-    id: schema.id,
-    types: {}
-  }
-
-  for (const k in schema.types) {
-    const schemaType = schema.types[k]
-    const fields = Object.keys(schemaType.fields)
-    result.types[k] = {
-      fieldOrder: fields,
-      optionalOrder: fields,
-    }
-  }
-
-  return result
-}
-
 function checkPrimitiveType(val: any, type: Primitive) {
   // console.log('val', val, 'type', type)
   switch (type) {
@@ -81,13 +63,6 @@ function checkPrimitiveType(val: any, type: Primitive) {
     case 'string': case 'id': assert(typeof val === 'string'); break
     default: throw Error(`case missing in checkType: ${type}`)
   }
-}
-
-interface EncodingState {
-  writer: WriteBuffer,
-  encoding: SchemaEncoding
-  schema: Schema
-  toJs: SchemaToJS
 }
 
 function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
@@ -137,27 +112,27 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
 }
 
 //  = simpleSchemaEncoding(schema)
-function encodeStruct(state: EncodingState, val: Record<string, any>, schema: StructSchema, toJs: StructToJS, encoding: StructEncoding) {
+function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, struct: StructSchema) {
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
-  if (encoding.optionalOrder.length) {
-    if (encoding.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
+  if (struct.optionalOrder.length) {
+    if (struct.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
     let optionalBits = 0
 
     // If any fields are optional, all the data is prefixed by a set of optional bits describing which fields exist.
-    for (const k of encoding.fieldOrder) {
-      const fieldName = toJs.fields[k].fieldName ?? k
+    for (const k of struct.fieldOrder) {
+      const fieldName = struct.fields[k].renameFieldTo ?? k
       const fieldMissing = val[fieldName] === undefined
       optionalBits = mixBit(optionalBits, fieldMissing)
     }
 
-    writeVarInt(state.writer, optionalBits)
+    writeVarInt(w, optionalBits)
   }
 
-  const optionalFields = new Set(encoding.optionalOrder)
+  const optionalFields = new Set(struct.optionalOrder)
 
-  for (const k of encoding.fieldOrder) {
-    const fieldName = toJs.fields[k].fieldName ?? k
+  for (const k of struct.fieldOrder) {
+    const fieldName = struct.fields[k].renameFieldTo ?? k
     let v = val[fieldName]
     if (v == null) {
       // NOTE: I could fill in the default value in this case. Not sure if that would be the right call.
@@ -165,26 +140,26 @@ function encodeStruct(state: EncodingState, val: Record<string, any>, schema: St
       continue // Skipped as per optionalOrder above.
     }
 
-    const type = schema.fields[k].type
+    const type = struct.fields[k].type
 
-    encodeThing(state, v, type)
+    encodeThing(w, schema, v, type)
   }
 }
 
-function encodeThing(state: EncodingState, val: any, type: SType) {
+function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
   if (typeof type === 'object') { // Animal, mineral or vegetable...
     switch (type.type) {
       case 'ref': {
         const rootType = type.key
-        encodeStruct(state, val, state.schema.types[rootType], state.toJs.types[rootType], state.encoding.types[rootType])
+        encodeStruct(w, schema, val, schema.types[rootType])
         break
       }
       case 'list': {
         if (!Array.isArray(val)) throw Error('Cannot encode item as list')
-        writeVarInt(state.writer, val.length)
+        writeVarInt(w, val.length)
         // TODO: Consider special-casing bit arrays.
         for (const v of val) {
-          encodeThing(state, v, type.fieldType)
+          encodeThing(w, schema, v, type.fieldType)
         }
         break
       }
@@ -193,7 +168,7 @@ function encodeThing(state: EncodingState, val: any, type: SType) {
         throw new Error('unhandled case');
     }
   } else {
-    encodePrimitive(state.writer, val, type)
+    encodePrimitive(w, val, type)
   }
 }
 
@@ -201,25 +176,21 @@ const isRef = (x: SType): x is {type: 'ref', key: string} => (
   typeof x !== 'string' && x.type === 'ref'
 )
 
-function toBinary(schema: Schema, toJs: SchemaToJS, data: any, encoding: SchemaEncoding = simpleSchemaEncoding(schema)): Uint8Array {
+function toBinary(schema: Schema, data: any): Uint8Array {
   const writer: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0,
     ids: new Map()
   }
 
-  const state: EncodingState = {
-    writer, encoding, schema, toJs
-  }
-
-  encodeThing(state, data, schema.root)
+  encodeThing(writer, schema, data, schema.root)
 
   return writer.buffer.slice(0, writer.pos)
 }
 
 
 const simpleTest = () => {
-  const schema: Schema = {
+  const pureSchema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -248,23 +219,25 @@ const simpleTest = () => {
     id: 'Example',
     types: {
       Contact: {
+        known: true,
         fields: {
-          name: {},
-          age: {}
+          name: {known: true},
+          age: {known: true}
         }
       }
     }
   }
 
+  const schema = combine(pureSchema, encoding, toJs)
   const data = {name: 'seph', age: 21}
 
-  console.log(toBinary(schema, toJs, data, encoding))
+  console.log(toBinary(schema, data))
 }
 
 
 
 const kitchenSinkTest = () => {
-  const schema: Schema = {
+  const schema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -280,24 +253,11 @@ const kitchenSinkTest = () => {
     }
   }
 
-  const toJs: SchemaToJS = {
-    id: 'Example',
-    types: {
-      Contact: {
-        fields: {
-          name: {},
-          age: {},
-          addresses: {}
-        }
-      }
-    }
-  }
-
   const data = {name: 'seph', age: 21, addresses: ['123 Example St', '456 Somewhere else']}
 
-  console.log(toBinary(schema, toJs, data))
+  console.log(toBinary(simpleFullSchema(schema), data))
 }
 
-// simpleTest()
-kitchenSinkTest()
+simpleTest()
+// kitchenSinkTest()
 

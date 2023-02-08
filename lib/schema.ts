@@ -5,6 +5,7 @@
 - ~List~
 - Enum
 - Map
+- Ignored fields (toJS)
 
 */
 
@@ -15,22 +16,28 @@ export type Ref = {type: 'ref', key: string} // Reference to another type in the
 export type List = {type: 'list', fieldType: SType}
 export type SType = Primitive | Ref | List
 
-export interface StructSchema {
+export interface StructPureSchema {
   type: 'struct'
   fields: Record<string, {
     type: SType,
+
+    [k: string]: any
   }>
+
+  [k: string]: any
   // default?
 }
 
-export type Oracle = Record<string, StructSchema>
-export interface Schema {
+export type Oracle = Record<string, StructPureSchema & StructEncoding & StructToJS>
+
+export interface PureSchema {
   id: string,
   root: SType
-  types: Oracle
-  // types: Record<string, Struct | Enum>
+  types: Record<string, StructPureSchema>
 }
 
+export type Schema = PureSchema & SchemaEncoding & SchemaToJS
+export type StructSchema = StructPureSchema & StructEncoding & StructToJS
 
 // *** File to schema mapping ***
 
@@ -42,6 +49,8 @@ export interface StructEncoding {
   // TODO: Bit pack adjacent booleans.
   fieldOrder: string[],
   optionalOrder: string[],
+
+  [k: string]: any
 }
 
 export interface SchemaEncoding {
@@ -50,14 +59,19 @@ export interface SchemaEncoding {
 }
 
 
-
 // *** Schema to javascript mapping ***
 
 export interface StructToJS {
+  known: boolean,
   fields: Record<string, {
+    known: boolean,
     defaultValue?: any, // If the field is missing in the data set, use this value instead of null.
-    fieldName?: string, // Overrides the field's key name in schema
+    renameFieldTo?: string, // Overrides the field's key name in schema
+
+    [k: string]: any
   }>
+
+  [k: string]: any
 }
 
 export interface SchemaToJS {
