@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { List, Oracle, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
+import { PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
 import { combine, mergeSchemas } from "./utils.js"

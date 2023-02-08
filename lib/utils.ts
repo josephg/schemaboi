@@ -1,4 +1,4 @@
-import { List, Oracle, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
+import { List, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
 
 function mergeStructs(a: StructPureSchema, b: StructPureSchema): StructPureSchema {
   console.log('merge', a, b)
@@ -180,6 +180,7 @@ export const structEq = (a: StructPureSchema, b: StructPureSchema): boolean => {
   return true
 }
 
+type Oracle = Record<string, StructPureSchema>
 export const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean => {
   if (a === b) return true
   if (typeof a === 'string' || typeof b === 'string') return false

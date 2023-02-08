@@ -28,8 +28,6 @@ export interface StructPureSchema {
   // default?
 }
 
-export type Oracle = Record<string, StructPureSchema & StructEncoding & StructToJS>
-
 export interface PureSchema {
   id: string,
   root: SType
