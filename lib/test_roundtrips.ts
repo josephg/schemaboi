@@ -56,6 +56,39 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
+  // Enum
+  const schema: PureSchema = {
+    id: 'Example',
+    root: ref('Color'),
+    types: {
+      Color: {
+        type: 'enum',
+        variants: {
+          Blue: {},
+          Red: {},
+          RGB: {
+            associatedData: {
+              type: 'struct',
+              fields: {
+                r: {type: 'uint'},
+                g: {type: 'uint'},
+                b: {type: 'uint'},
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  testRoundTrip(schema, 'Red')
+  testRoundTrip(schema, 'Blue')
+  // testRoundTrip(schema, {type: 'Blue'})
+  testRoundTrip(schema, {type: 'RGB', r: null, g: null, b: null}) // TODO: Make a non-nullable variant.
+  testRoundTrip(schema, {type: 'RGB', r: 123, g: 2, b: 1})
+}
+
+{
   const schema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),

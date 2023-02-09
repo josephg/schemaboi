@@ -6,6 +6,7 @@
 - Enum
 - Map
 - Ignored fields (toJS)
+- Mapping & read / write visitors
 
 */
 
@@ -28,18 +29,32 @@ export interface StructPureSchema {
   // default?
 }
 
+export interface EnumPureSchema {
+  type: 'enum',
+  // closed: boolean,
+  variants: Record<string, {
+    associatedData?: StructPureSchema
+  }>
+
+  [k: string]: any
+}
+
 export interface PureSchema {
   id: string,
   root: SType
-  types: Record<string, StructPureSchema>
+  types: Record<string, StructPureSchema | EnumPureSchema>
 }
 
 export type Schema = PureSchema & SchemaEncoding & SchemaToJS
 export type StructSchema = StructPureSchema & StructEncoding & StructToJS
+export type EnumSchema = EnumPureSchema & EnumEncoding & EnumToJS
+
+export type EnumObject = string | {type: string, [k: string]: any}
 
 // *** File to schema mapping ***
 
 export interface StructEncoding {
+  type: 'struct',
   // Any fields not listed here are not included in the file data, and should be null, default or error.
   //
   // The order here is important. Fields are listed in the order that their data is written to the file.
@@ -51,15 +66,24 @@ export interface StructEncoding {
   [k: string]: any
 }
 
-export interface SchemaEncoding {
-  id: string,
-  types: Record<string, StructEncoding>
+export interface EnumEncoding {
+  type: 'enum',
+  variantOrder: string[],
+  variants: Record<string, {
+    associatedData?: StructEncoding
+  }>
+  [k: string]: any
 }
 
+export interface SchemaEncoding {
+  id: string,
+  types: Record<string, StructEncoding | EnumEncoding>
+}
 
 // *** Schema to javascript mapping ***
 
 export interface StructToJS {
+  type: 'struct',
   known: boolean,
   fields: Record<string, {
     known: boolean,
@@ -72,10 +96,24 @@ export interface StructToJS {
   [k: string]: any
 }
 
+export interface EnumToJS {
+  type: 'enum',
+  variants: Record<string, {
+    // known: boolean
+    associatedData?: StructToJS
+  }>
+
+  // typeOnParent
+  // useStringsWhenNoFields
+  // {type: foo, ...} or {foo: {...}} or whatever.
+
+  [k: string]: any
+}
+
 export interface SchemaToJS {
   id: string,
   // TODO.
-  types: Record<string, StructToJS>
+  types: Record<string, StructToJS | EnumToJS>
 }
 
 

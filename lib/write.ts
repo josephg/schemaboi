@@ -1,9 +1,9 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
-import assert from 'assert/strict'
-
-import {Console} from 'node:console'
+import { EnumObject, EnumSchema, Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
 import { combine, simpleFullSchema } from "./utils.js"
+
+import assert from 'assert/strict'
+import {Console} from 'node:console'
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
@@ -151,12 +151,46 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
   }
 }
 
+// const enumIsEmpty = (obj: EnumObject): boolean => {
+//   if (typeof obj === 'string') return true
+//   for (const k in obj) {
+//     if (k !== 'type') return false
+//   }
+//   return true
+// }
+
+// For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
+function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema) {
+  const variantName = typeof val === 'string' ? val : val.type
+  const variant = e.variants[variantName]
+  if (variant == null) throw Error('Unrecognised enum variant: ' + variantName)
+
+  const variantNum = e.variantOrder.indexOf(variantName)
+  if (variantNum < 0) throw Error(`No encoding specified for ${variantName}`)
+
+  // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
+  writeVarInt(w, variantNum)
+  if (variant.associatedData) {
+    encodeStruct(w, schema, typeof val === 'string' ? {} : val, variant.associatedData)
+  }
+}
+
 function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
   if (typeof type === 'object') { // Animal, mineral or vegetable...
     switch (type.type) {
       case 'ref': {
-        const rootType = type.key
-        encodeStruct(w, schema, val, schema.types[rootType])
+        const innerType = schema.types[type.key]
+        switch (innerType.type) {
+          case 'struct':
+            encodeStruct(w, schema, val, innerType)
+            break
+          case 'enum':
+            encodeEnum(w, schema, val, innerType)
+            break
+          default:
+            const exhaustiveCheck: never = innerType
+        }
+
         break
       }
       case 'list': {
@@ -214,6 +248,7 @@ const simpleTest = () => {
     id: 'Example',
     types: {
       Contact: {
+        type: 'struct',
         fieldOrder: ['age', 'name'],
         optionalOrder: ['name']
       }
@@ -224,6 +259,7 @@ const simpleTest = () => {
     id: 'Example',
     types: {
       Contact: {
+        type: 'struct',
         known: true,
         fields: {
           name: {known: true},
@@ -251,18 +287,46 @@ const kitchenSinkTest = () => {
         fields: {
           name: {type: 'string'},
           age: {type: 'uint'},
-          addresses: {type: {type: 'list', fieldType: 'string'}}
+          addresses: {type: {type: 'list', fieldType: 'string'}},
           // address: {type: 'string'},
+          favoriteColor: {type: {type: 'ref', key: 'Color'}},
+          worstColor: {type: {type: 'ref', key: 'Color'}},
+          hairColor: {type: {type: 'ref', key: 'Color'}},
+        }
+      },
+
+      Color: {
+        type: 'enum',
+        variants: {
+          Blue: {},
+          Red: {},
+          RGB: {
+            associatedData: {
+              type: 'struct',
+              fields: {
+                r: {type: 'uint'},
+                g: {type: 'uint'},
+                b: {type: 'uint'},
+              }
+            }
+          }
         }
       }
     }
   }
 
-  const data = {name: 'seph', age: 21, addresses: ['123 Example St', '456 Somewhere else']}
+  const data = {
+    name: 'seph',
+    age: 21,
+    addresses: ['123 Example St', '456 Somewhere else'],
+    favoriteColor: 'Red',
+    hairColor: {type: 'Blue'},
+    worstColor: {type: 'RGB', r: 10, g: 50, b: 100},
+  }
 
   console.log(toBinary(simpleFullSchema(schema), data))
 }
 
 // simpleTest()
-// kitchenSinkTest()
+kitchenSinkTest()
 

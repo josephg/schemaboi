@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
+import { EnumObject, EnumSchema, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
 import { combine, mergeSchemas } from "./utils.js"
@@ -33,7 +33,7 @@ function readString(r: Reader): string {
   return textDecoder.decode(buf)
 }
 
-function readStruct(r: Reader, schema: Schema, key: string, struct: StructSchema): Record<string, any> | null {
+function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<string, any> | null {
   // I'm still not sure what we should do in this case. We may still need the data!
   //
   // There are essentially 3 options:
@@ -75,7 +75,7 @@ function readStruct(r: Reader, schema: Schema, key: string, struct: StructSchema
     if (type.known) {
       result![type.renameFieldTo ?? f] = thing
     } else {
-      console.warn('Unknown field', f, 'in struct', key)
+      console.warn('Unknown field', f, 'in struct')
       result!._external ??= {}
       result!._external[f] = thing
     }
@@ -90,6 +90,24 @@ function readStruct(r: Reader, schema: Schema, key: string, struct: StructSchema
   }
 
   return result
+}
+
+function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
+  // const [hasFields, variantNum] = trimBit(readVarInt(r))
+  const variantNum = readVarInt(r)
+
+  const variantName = e.variantOrder[variantNum]
+  if (variantName == null) throw Error('Could not look up variant ' + variantNum)
+
+  const variant = e.variants[variantName]
+  // Only decode the struct if the encoding names fields.
+  if (variant.associatedData != null && variant.associatedData.fieldOrder.length > 0) {
+    const data = readStruct(r, schema, variant.associatedData)
+    return {type: variantName, ...data}
+  } else {
+    // TODO: Make this configurable!
+    return variantName
+  }
 }
 
 function readThing(r: Reader, schema: Schema, type: SType): any {
@@ -108,14 +126,31 @@ function readThing(r: Reader, schema: Schema, type: SType): any {
         r.pos += 8
         return result
       }
-      default: throw Error('NYI readThing for ' + type)
+      case 'bool': {
+        const bit = r.data.getUint8(r.pos) !== 0
+        r.pos++
+        return bit
+      }
+      case 'binary': {
+        const len = readVarInt(r)
+        // r.data.
+        const base = r.data.byteOffset + r.pos
+        const buf = r.data.buffer.slice(base, base+len)
+        r.pos += len
+        return buf
+      }
+      case 'id': throw Error('Reader for IDs not implemented')
+      // default: throw Error('NYI readThing for ' + type)
+      default:
+        const expectNever: never = type
     }
   } else {
     switch (type.type) {
       case 'ref': {
         const inner = schema.types[type.key]
-        if (inner.type === 'struct') return readStruct(r, schema, type.key, inner)
-        // Else compile error!
+        if (inner.type === 'struct') return readStruct(r, schema, inner)
+        else if (inner.type === 'enum') return readEnum(r, schema, inner)
+        else { const exhaustiveCheck: never = inner }
         break
       }
       case 'list': {
@@ -207,6 +242,7 @@ const testRead2 = () => {
     id: 'Example',
     types: {
       Contact: {
+        type: 'struct',
         fieldOrder: ['age', 'name'],
         optionalOrder: []
       }
@@ -217,6 +253,7 @@ const testRead2 = () => {
     id: 'Example',
     types: {
       Contact: {
+        type: 'struct',
         known: true,
         fields: {
           age: { known: true, renameFieldTo: 'yearsOld' },
