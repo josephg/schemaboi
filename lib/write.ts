@@ -202,6 +202,15 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
         }
         break
       }
+      case 'map': {
+        const entries = Object.entries(val)
+        writeVarInt(w, entries.length)
+        for (const [k, v] of entries) {
+          encodePrimitive(w, k, type.keyType)
+          encodeThing(w, schema, v, type.valType)
+        }
+        break
+      }
       default:
         const exhaustiveCheck: never = type;
         throw new Error('unhandled case');

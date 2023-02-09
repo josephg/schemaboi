@@ -41,6 +41,16 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 {
   const schema: PureSchema = {
     id: 'Example',
+    root: {type: 'map', keyType: 'string', valType: 'f64'},
+    types: {}
+  }
+
+  testRoundTrip(schema, {aa: 123, bb: 213.23})
+}
+
+{
+  const schema: PureSchema = {
+    id: 'Example',
     root: ref('Contact'),
     types: {
       Contact: {

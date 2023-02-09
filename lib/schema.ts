@@ -3,7 +3,7 @@
 
 - ~Struct~
 - ~List~
-- Enum
+- ~Enum~
 - Map
 - Ignored fields (toJS)
 - Mapping & read / write visitors
@@ -15,7 +15,12 @@ export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'b
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
 export type List = {type: 'list', fieldType: SType}
-export type SType = Primitive | Ref | List
+export interface MapType { // MapType rather than Map because Map is the name of a builtin type.
+  type: 'map',
+  keyType: Primitive
+  valType: SType
+}
+export type SType = Primitive | Ref | List | MapType
 
 export interface StructPureSchema {
   type: 'struct'

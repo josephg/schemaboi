@@ -1,4 +1,4 @@
-import { EnumEncoding, EnumPureSchema, EnumSchema, EnumToJS, List, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
+import { EnumEncoding, EnumPureSchema, EnumSchema, EnumToJS, List, MapType, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -235,6 +235,9 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
       return a.key === (b as Ref).key
     case 'list':
       return typesShallowEq(a.fieldType, (b as List).fieldType)
+    case 'map':
+      const bb = b as MapType
+      return a.keyType === bb.keyType && typesShallowEq(a.valType, bb.valType)
     // Other cases (when added) will generate a type error.
   }
 }
@@ -269,6 +272,9 @@ export const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): b
       return structEq(aOracle[a.key], bOracle[a.key])
     case 'list':
       return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
+    case 'map':
+      const bb = b as MapType
+      return a.keyType === bb.keyType && typesEq(a.valType, bb.valType, aOracle, bOracle)
     // Other cases (when added) will generate a type error.
   }
 }

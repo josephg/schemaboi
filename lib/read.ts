@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
+import { EnumObject, EnumSchema, Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
 import { combine, mergeSchemas } from "./utils.js"
@@ -110,40 +110,44 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
   }
 }
 
+function readPrimitive(r: Reader, type: Primitive): any {
+  switch (type) {
+    case 'uint': return readVarInt(r)
+    case 'sint': return zigzagDecode(readVarInt(r))
+    case 'string': return readString(r)
+    case 'f32': {
+      const result = r.data.getFloat32(r.pos, true)
+      r.pos += 4
+      return result
+    }
+    case 'f64': {
+      const result = r.data.getFloat64(r.pos, true)
+      r.pos += 8
+      return result
+    }
+    case 'bool': {
+      const bit = r.data.getUint8(r.pos) !== 0
+      r.pos++
+      return bit
+    }
+    case 'binary': {
+      const len = readVarInt(r)
+      // r.data.
+      const base = r.data.byteOffset + r.pos
+      const buf = r.data.buffer.slice(base, base+len)
+      r.pos += len
+      return buf
+    }
+    case 'id': throw Error('Reader for IDs not implemented')
+    // default: throw Error('NYI readThing for ' + type)
+    default:
+      const expectNever: never = type
+  }
+}
+
 function readThing(r: Reader, schema: Schema, type: SType): any {
   if (typeof type === 'string') {
-    switch (type) {
-      case 'uint': return readVarInt(r)
-      case 'sint': return zigzagDecode(readVarInt(r))
-      case 'string': return readString(r)
-      case 'f32': {
-        const result = r.data.getFloat32(r.pos, true)
-        r.pos += 4
-        return result
-      }
-      case 'f64': {
-        const result = r.data.getFloat64(r.pos, true)
-        r.pos += 8
-        return result
-      }
-      case 'bool': {
-        const bit = r.data.getUint8(r.pos) !== 0
-        r.pos++
-        return bit
-      }
-      case 'binary': {
-        const len = readVarInt(r)
-        // r.data.
-        const base = r.data.byteOffset + r.pos
-        const buf = r.data.buffer.slice(base, base+len)
-        r.pos += len
-        return buf
-      }
-      case 'id': throw Error('Reader for IDs not implemented')
-      // default: throw Error('NYI readThing for ' + type)
-      default:
-        const expectNever: never = type
-    }
+    return readPrimitive(r, type)
   } else {
     switch (type.type) {
       case 'ref': {
@@ -155,10 +159,21 @@ function readThing(r: Reader, schema: Schema, type: SType): any {
       }
       case 'list': {
         const length = readVarInt(r)
-        console.log('length', length)
+        // console.log('length', length)
         const result = []
         for (let i = 0; i < length; i++) {
           result.push(readThing(r, schema, type.fieldType))
+        }
+        return result
+      }
+      case 'map': {
+        if (type.keyType !== 'string') throw Error('Cannot read map with non-string keys in javascript')
+        const length = readVarInt(r)
+        const result: Record<string, any> = {}
+        for (let i = 0; i < length; i++) {
+          const k = readPrimitive(r, type.keyType)
+          const v = readThing(r, schema, type.valType)
+          result[k] = v
         }
         return result
       }
