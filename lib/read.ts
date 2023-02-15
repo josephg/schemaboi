@@ -41,10 +41,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   //    this will discard any foreign data.
   // 2. Parse the data but return it in a special way - eg {_external: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
-  if (!struct.known) throw Error('NYI struct is not locally recognised!')
+  if (!struct.mappedToJS) throw Error('NYI struct is not locally recognised!')
 
   // We still need to parse the struct, even if its not locally known to advance the read position.
-  const result: Record<string, any> | null = !struct.known ? null : {}
+  const result: Record<string, any> | null = !struct.mappedToJS ? null : {}
 
   // This is an inefficient way to do this, but it'll work fine.
   const missingFields = new Set<string>()
@@ -60,7 +60,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   }
 
   // This is just for debugging.
-  const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => struct.fields[k].known))
+  const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => struct.fields[k].mappedToJS))
 
   // console.log('missing fields', missingFields)
   for (const f of struct.fieldOrder) {
@@ -72,7 +72,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
       ? (type.defaultValue ?? null) // The field is optional and missing from the result.
       : readThing(r, schema, type.type)
 
-    if (type.known) {
+    if (type.mappedToJS) {
       result![type.renameFieldTo ?? f] = thing
     } else {
       console.warn('Unknown field', f, 'in struct')
@@ -204,13 +204,13 @@ const testRead = () => {
     types: {
       Contact: {
         type: 'struct',
-        known: true,
+        mappedToJS: true,
         fieldOrder: ['age', 'name'],
         optionalOrder: [],
 
         fields: {
-          name: {type: 'string', known: true},
-          age: {type: 'uint', known: true}
+          name: {type: 'string', mappedToJS: true},
+          age: {type: 'uint', mappedToJS: true}
           // address: {type: 'string'},
         }
       }
@@ -269,10 +269,10 @@ const testRead2 = () => {
     types: {
       Contact: {
         type: 'struct',
-        known: true,
+        mappedToJS: true,
         fields: {
-          age: { known: true, renameFieldTo: 'yearsOld' },
-          address: { known: true, defaultValue: 'unknown location' },
+          age: { mappedToJS: true, renameFieldTo: 'yearsOld' },
+          address: { mappedToJS: true, defaultValue: 'unknown location' },
         }
       }
     }

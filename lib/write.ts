@@ -166,7 +166,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   if (variant == null) throw Error('Unrecognised enum variant: ' + variantName)
 
   const variantNum = e.variantOrder.indexOf(variantName)
-  if (variantNum < 0) throw Error(`No encoding specified for ${variantName}`)
+  if (variantNum < 0) throw Error(`No encoding for ${variantName}`)
 
   // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
   writeVarInt(w, variantNum)
@@ -269,10 +269,10 @@ const simpleTest = () => {
     types: {
       Contact: {
         type: 'struct',
-        known: true,
+        mappedToJS: true,
         fields: {
-          name: {known: true},
-          age: {known: true}
+          name: {mappedToJS: true},
+          age: {mappedToJS: true}
         }
       }
     }

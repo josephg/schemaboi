@@ -7,10 +7,10 @@ const console = new Console({
   inspectOptions: {depth: null}
 })
 
-// const merge1 = <T>(a: T | null | undefined, b: T | null | undefined, mergeFn: (a: T, b: T) => T): T | null | undefined => (
-//   a == null ? b
-//     : b == null ? a
-//     : mergeFn(a, b)
+// const takeOrMerge = <T>(a: T?, b: T?, mergeFn: (a: T, b: T) => T): T => (
+//   a == null ? b!
+//   : b == null ? a!
+//   : mergeFn(a, b)
 // )
 
 const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T, b: T) => T): Record<string, T> => {
@@ -19,6 +19,7 @@ const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a
     const aa = a[key]
     const bb = b[key]
 
+    // result[key] = takeOrMerge(aa, bb, mergeFn)
     result[key] = aa == null ? bb
       : bb == null ? aa
       : mergeFn(aa, bb)
@@ -50,17 +51,45 @@ function mergeStructs(a: StructPureSchema, b: StructPureSchema): StructPureSchem
 }
 
 function mergeEnums(a: EnumPureSchema, b: EnumPureSchema): EnumPureSchema {
-  return {
+  // I would use mergeObjects from above, but if one (or both) of the enums is closed, we need to make sure
+  // fields aren't added when they aren't valid.
+  const result: EnumPureSchema = {
     type: 'enum',
-    variants: mergeObjects(a.variants, b.variants, (aa, bb) => {
-      return {
-        associatedData: aa.associatedData == null ? bb.associatedData
-          : bb.associatedData == null ? aa.associatedData
-          : mergeStructs(aa.associatedData, bb.associatedData)
-      }
-    })
+    closed: !!(a.closed || b.closed),
+    variants: {}
   }
+
+  for (const key of mergedKeys(a.variants, b.variants)) {
+    const aa = a.variants[key]
+    const bb = b.variants[key]
+
+    if (aa == null && a.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+    if (bb == null && b.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+
+    result.variants[key] = aa == null ? bb
+      : bb == null ? aa
+      : {
+          associatedData: aa.associatedData == null ? bb.associatedData
+            : bb.associatedData == null ? aa.associatedData
+            : mergeStructs(aa.associatedData, bb.associatedData)
+        }
+  }
+
+  return result
 }
+
+// function mergeEnums(a: EnumPureSchema, b: EnumPureSchema): EnumPureSchema {
+//   return {
+//     type: 'enum',
+//     variants: mergeObjects(a.variants, b.variants, (aa, bb) => {
+//       return {
+//         associatedData: aa.associatedData == null ? bb.associatedData
+//           : bb.associatedData == null ? aa.associatedData
+//           : mergeStructs(aa.associatedData, bb.associatedData)
+//       }
+//     })
+//   }
+// }
 
 export function mergeSchemas(a: PureSchema | Schema, b: PureSchema | Schema): PureSchema {
   if (a.id != b.id) throw Error('Incompatible schemas')
@@ -109,8 +138,9 @@ export function simpleSchemaEncoding(schema: PureSchema): SchemaEncoding {
         }
 
         case 'enum': {
-          return {
+          return <EnumEncoding>{
             type: 'enum',
+            mappedToJS: true,
             variantOrder: Object.keys(schemaType.variants),
             variants: objMap(schemaType.variants, v => {
               return v.associatedData ? {
@@ -133,8 +163,8 @@ export function simpleJsMap(schema: PureSchema): SchemaToJS {
         case 'struct': {
           return <StructToJS>{
             type: 'struct',
-            known: true,
-            fields: objMap(s.fields, () => ({known: true}))
+            mappedToJS: true,
+            fields: objMap(s.fields, () => ({mappedToJS: true}))
           }
         }
 
@@ -142,13 +172,14 @@ export function simpleJsMap(schema: PureSchema): SchemaToJS {
           return <EnumToJS>{
             type: 'enum',
             variants: objMap(s.variants, s => {
-              return s.associatedData ? {
-                associatedData: <StructToJS>{
+              return {
+                known: true,
+                associatedData: s.associatedData ? <StructToJS>{
                   type: 'struct',
-                  known: true,
-                  fields: objMap(s.associatedData.fields, () => ({known: true}))
-                }
-              } : {}
+                  mappedToJS: true,
+                  fields: objMap(s.associatedData.fields, () => ({mappedToJS: true}))
+                } : undefined,
+              }
             })
           }
         }
@@ -160,7 +191,7 @@ export function simpleJsMap(schema: PureSchema): SchemaToJS {
 const combineStruct = (s: StructPureSchema, e: StructEncoding, j: StructToJS): StructSchema => {
   return <StructSchema>{
     type: 'struct',
-    known: j.known,
+    mappedToJS: j.mappedToJS,
     fieldOrder: e.fieldOrder,
     optionalOrder: e.optionalOrder,
     fields: objMap(s.fields, (sf, f) => ({
@@ -181,7 +212,7 @@ export function combine(schema: PureSchema, encoding: SchemaEncoding, toJs: Sche
       switch (s.type) {
         case 'struct': {
           const e = encoding.types[name] as StructEncoding
-          const j = (toJs.types[name] ?? {known: false, fields: {}}) as StructToJS
+          const j = (toJs.types[name] ?? {mappedToJS: false, fields: {}}) as StructToJS
 
           return combineStruct(s, e, j)
         }

@@ -4,9 +4,12 @@
 - ~Struct~
 - ~List~
 - ~Enum~
-- Map
+- ~Map~
+- Enum known & unknown variants, closed / open.
+- Packed bit fields
 - Ignored fields (toJS)
 - Mapping & read / write visitors
+- Metaschema 2.0
 
 */
 
@@ -36,7 +39,7 @@ export interface StructPureSchema {
 
 export interface EnumPureSchema {
   type: 'enum',
-  // closed: boolean,
+  closed?: boolean, // Default false.
   variants: Record<string, {
     associatedData?: StructPureSchema
   }>
@@ -73,8 +76,11 @@ export interface StructEncoding {
 
 export interface EnumEncoding {
   type: 'enum',
+  mappedToJS: boolean,
+  // If a variant doesn't show up here, the encoding doesn't support that variant.
   variantOrder: string[],
   variants: Record<string, {
+    mappedToJS: boolean,
     associatedData?: StructEncoding
   }>
   [k: string]: any
@@ -89,9 +95,14 @@ export interface SchemaEncoding {
 
 export interface StructToJS {
   type: 'struct',
-  known: boolean,
+
+  /**
+   * This known field here is only necessary because we create a union of Encoding / Schema / ToJS info.
+   * If false, this type is locally unknown.
+   */
+  mappedToJS: boolean,
   fields: Record<string, {
-    known: boolean,
+    mappedToJS: boolean,
     defaultValue?: any, // If the field is missing in the data set, use this value instead of null.
     renameFieldTo?: string, // Overrides the field's key name in schema
 
@@ -103,8 +114,9 @@ export interface StructToJS {
 
 export interface EnumToJS {
   type: 'enum',
+  // known: boolean
   variants: Record<string, {
-    // known: boolean
+    known: boolean
     associatedData?: StructToJS
   }>
 
