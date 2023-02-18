@@ -4,13 +4,19 @@ import { toBinary } from "./write.js";
 import { simpleFullSchema } from "./utils.js";
 
 import * as assert from 'assert/strict'
+import {Console} from 'node:console'
+const console = new Console({
+  stdout: process.stdout,
+  stderr: process.stderr,
+  inspectOptions: {depth: null}
+})
 
 const testRoundTripFullSchema = (schema: Schema, input: any) => {
   const bytes = toBinary(schema, input)
   const result = readData(schema, bytes)
-  console.log('result', result)
+  // console.log('result', result)
 
-  assert.deepEqual(input, result)
+  assert.deepEqual(result, input)
 }
 
 const testRoundTrip = (schema: PureSchema, input: any) => {
@@ -91,6 +97,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
     }
   }
 
+  // console.log(simpleFullSchema(schema))
   testRoundTrip(schema, 'Red')
   testRoundTrip(schema, 'Blue')
   // testRoundTrip(schema, {type: 'Blue'})
@@ -99,6 +106,41 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
+  // Test unknown enum variants
+  const pureSchema: PureSchema = {
+    id: 'Example',
+    root: ref('Color'),
+    types: {
+      Color: {
+        type: 'enum',
+        variants: {
+          Blue: {},
+          Red: {},
+          RGB: {
+            associatedData: {
+              type: 'struct',
+              fields: {
+                r: {type: 'uint'},
+                g: {type: 'uint'},
+                b: {type: 'uint'},
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  let schema = simpleFullSchema(pureSchema)
+  schema.types['Color'].variants['Red'].mappedToJS = false
+  schema.types['Color'].variants['RGB'].mappedToJS = false
+  testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
+  testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
+  testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'RGB', r: 123, g: 2, b: 1}})
+}
+
+{
+  // Test nullable struct fields
   const schema: PureSchema = {
     id: 'Example',
     root: ref('Contact'),

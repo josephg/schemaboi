@@ -161,8 +161,16 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
 
 // For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
 function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema) {
-  const variantName = typeof val === 'string' ? val : val.type
+  const variantName = typeof val === 'string' ? val
+    : val.type === '_unknown' ? val.data.type
+    : val.type
+
+  const associatedData = typeof val === 'string' ? {}
+    : val.type === '_unknown' ? val.data
+    : val
+
   const variant = e.variants[variantName]
+  // console.log('WRITE variant', variantName, variant)
   if (variant == null) throw Error('Unrecognised enum variant: ' + variantName)
 
   const variantNum = e.variantOrder.indexOf(variantName)
@@ -171,7 +179,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
   writeVarInt(w, variantNum)
   if (variant.associatedData) {
-    encodeStruct(w, schema, typeof val === 'string' ? {} : val, variant.associatedData)
+    encodeStruct(w, schema, associatedData, variant.associatedData)
   }
 }
 
@@ -337,5 +345,5 @@ const kitchenSinkTest = () => {
 }
 
 // simpleTest()
-kitchenSinkTest()
+// kitchenSinkTest()
 

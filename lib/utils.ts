@@ -173,7 +173,7 @@ export function simpleJsMap(schema: PureSchema): SchemaToJS {
             type: 'enum',
             variants: objMap(s.variants, s => {
               return {
-                known: true,
+                mappedToJS: true,
                 associatedData: s.associatedData ? <StructToJS>{
                   type: 'struct',
                   mappedToJS: true,
@@ -224,15 +224,14 @@ export function combine(schema: PureSchema, encoding: SchemaEncoding, toJs: Sche
           return <EnumSchema>{
             type: 'enum',
             variantOrder: e.variantOrder,
-            variants: objMap(s.variants, (v, name) => {
+            variants: objMap(s.variants, (v, name) => ({
               // TODO: Put null checks on this stuff.
-              return v.associatedData ? {
-                associatedData: combineStruct(v.associatedData,
+              mappedToJS: j.variants[name].mappedToJS,
+              associatedData: v.associatedData ? combineStruct(v.associatedData,
                   e.variants[name].associatedData!,
                   j.variants[name].associatedData!
-                )
-              } : {}
-            })
+              ) : undefined
+            }))
           }
         }
       }

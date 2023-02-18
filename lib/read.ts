@@ -97,15 +97,24 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
   const variantNum = readVarInt(r)
 
   const variantName = e.variantOrder[variantNum]
+  // console.log('VV', variantNum, variantName)
   if (variantName == null) throw Error('Could not look up variant ' + variantNum)
 
   const variant = e.variants[variantName]
+  // console.log('READ variant', variant, schema)
   // Only decode the struct if the encoding names fields.
-  if (variant.associatedData != null && variant.associatedData.fieldOrder.length > 0) {
-    const data = readStruct(r, schema, variant.associatedData)
-    return {type: variantName, ...data}
+
+  const associatedData = variant.associatedData != null && variant.associatedData.fieldOrder.length > 0
+    ? readStruct(r, schema, variant.associatedData)
+    : null
+
+  if (!variant.mappedToJS) {
+    // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
+    return {type: '_unknown', data: {type: variantName, ...associatedData}}
+  } else if (associatedData != null) {
+    return {type: variantName, ...associatedData}
   } else {
-    // TODO: Make this configurable!
+    // TODO: Make this configurable! Apps should never be surprised by this.
     return variantName
   }
 }
