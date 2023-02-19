@@ -45,6 +45,11 @@ export interface StructSchema {
   }>,
 
   encodingOrder: string[],
+
+  // These methods, if provided, will be called before reading and after writing to prepare the object
+  // for encoding. If used, the schema should express the data *at rest*.
+  encode?: (obj: any) => Record<string, any>,
+  decode?: (obj: Record<string, any>) => any,
 }
 
 export interface EnumSchema {

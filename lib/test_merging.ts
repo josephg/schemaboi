@@ -1,6 +1,12 @@
 import * as assert from 'assert/strict'
-import { EnumSchema, Schema } from './schema.js'
-import { extendSchema, mergeSchemas, ref } from './utils.js'
+import { EnumSchema, Schema, StructSchema } from './schema.js'
+import { enumOfStrings, enumOfStringsSimple, extendSchema, mergeSchemas, ref } from './utils.js'
+import {Console} from 'node:console'
+const console = new Console({
+  stdout: process.stdout,
+  stderr: process.stderr,
+  inspectOptions: {depth: null}
+})
 
 const testClosedEnum = () => {
 
@@ -47,4 +53,53 @@ const testClosedEnum = () => {
   }
 }
 
-testClosedEnum()
+const testForeignMergesProperly = () => {
+  const fileSchema: Schema = {
+    id: 'Example',
+    root: ref('Contact'),
+    types: {
+      Contact: {
+        type: 'struct',
+        encodingOrder: ['age', 'name'],
+        foreign: true,
+        fields: {
+          name: {type: 'string', foreign: true, optional: false},
+          age: {type: 'uint', foreign: true, optional: false}
+          // address: {type: 'string'},
+        }
+      },
+      Color: enumOfStrings('Red', 'Blue'),
+    }
+  }
+
+  const appSchema: Schema = {
+    id: 'Example',
+    root: ref('Contact'),
+    types: {
+      Contact: {
+        type: 'struct',
+        encodingOrder: [],
+        fields: {
+          // name: {type: 'string'},
+          age: {type: 'uint', optional: true, renameFieldTo: 'yearsOld'},
+          address: {type: 'string', optional: true, defaultValue: 'unknown location'},
+        }
+      },
+      Color: enumOfStrings('Red', 'Bronze'),
+    }
+  }
+
+  const merged = mergeSchemas(fileSchema, appSchema)
+  console.log(merged)
+
+  assert.equal(true, (merged.types.Contact as StructSchema).fields.name.foreign)
+  assert.equal(false, (merged.types.Contact as StructSchema).fields.age.foreign)
+  assert.equal(false, (merged.types.Contact as StructSchema).fields.address.foreign)
+
+  assert.equal(false, (merged.types.Color as EnumSchema).variants.Red.foreign ?? false)
+  assert.equal(true, (merged.types.Color as EnumSchema).variants.Blue.foreign ?? false)
+  assert.equal(false, (merged.types.Color as EnumSchema).variants.Bronze.foreign ?? false)
+}
+
+// testClosedEnum()
+testForeignMergesProperly()

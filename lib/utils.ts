@@ -57,16 +57,19 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
   // Merge them.
   return {
     type: 'struct',
-    foreign: local.foreign,
-    fields: mergeObjectsAll(remote.fields, local.fields, (af, bf) => {
+    foreign: local.foreign ?? false,
+    fields: mergeObjectsAll(remote.fields, local.fields, (remoteF, localF) => {
       // Check the fields are compatible.
-      if (af && bf && !typesShallowEq(af.type, bf.type)) throw Error('Incompatible types in struct field')
+      if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
+        throw Error('Incompatible types in struct field')
+      }
 
       return {
-        type: bf?.type ?? af!.type,
-        defaultValue: bf?.defaultValue,
-        optional: af?.optional ?? true, // A field being optional is part of the encoding.
-        mappedToJS: bf?.foreign ?? true,
+        type: localF?.type ?? remoteF!.type,
+        foreign: localF ? (localF.foreign ?? false) : true,
+        defaultValue: localF?.defaultValue,
+        optional: remoteF?.optional ?? true, // A field being optional is part of the encoding.
+        mappedToJS: localF?.foreign ?? true,
       }
     }),
     encodingOrder: remote.encodingOrder,
@@ -84,7 +87,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
 
   const result: EnumSchema = {
     type: 'enum',
-    foreign: local.foreign,
+    foreign: local.foreign ?? false,
     numericOnly: local.numericOnly,
     // I think this behaviour is correct...
     closed: remote.closed || local.closed,
@@ -93,19 +96,19 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
   }
 
   for (const key of mergedKeys(remote.variants, local.variants)) {
-    const aa = remote.variants[key]
-    const bb = local.variants[key]
+    const remoteV = remote.variants[key]
+    const localV = local.variants[key]
 
-    if (aa == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
-    if (bb == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+    if (remoteV == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+    if (localV == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
 
-    result.variants[key] = aa == null ? bb
-      : bb == null ? aa
+    result.variants[key] = remoteV == null ? { foreign: false, ...localV}
+      : localV == null ? { ...remoteV, foreign: true } // TODO: Recursively set foreign flag in associated data.
       : {
-          foreign: bb.foreign,
-          associatedData: aa.associatedData == null ? bb.associatedData
-            : bb.associatedData == null ? aa.associatedData
-            : mergeStructs(aa.associatedData, bb.associatedData)
+          foreign: localV.foreign ?? false,
+          associatedData: remoteV.associatedData == null ? localV.associatedData
+            : localV.associatedData == null ? remoteV.associatedData
+            : mergeStructs(remoteV.associatedData, localV.associatedData)
         }
   }
 
@@ -251,11 +254,19 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
 
 export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
 
-export const enumOfStrings = (...variants: string[]): SimpleEnumSchema => ({
+export const enumOfStringsSimple = (...variants: string[]): SimpleEnumSchema => ({
   type: 'enum',
   closed: false,
   numericOnly: true,
   variants: Object.fromEntries(variants.map(v => [v, null]))
+})
+
+export const enumOfStrings = (...variants: string[]): EnumSchema => ({
+  type: 'enum',
+  closed: false,
+  numericOnly: true,
+  variants: Object.fromEntries(variants.map(v => [v, {}])),
+  encodingOrder: variants,
 })
 
 export const hasOptionalFields = (s: StructSchema): boolean => (
@@ -277,7 +288,7 @@ const testMergeSchema = () => {
           address: {type: 'string'},
         }
       },
-      Color: enumOfStrings('Red', 'Green'),
+      Color: enumOfStringsSimple('Red', 'Green'),
     }
   })
 
@@ -292,7 +303,7 @@ const testMergeSchema = () => {
           phoneNo: {type: 'string'},
         }
       },
-      Color: enumOfStrings('Green', 'Blue'),
+      Color: enumOfStringsSimple('Green', 'Blue'),
     }
   })
 
@@ -326,7 +337,7 @@ const testSimpleSchemaInference = () => {
         }
       },
 
-      Color: enumOfStrings('Green', 'Red', 'Purple')
+      Color: enumOfStringsSimple('Green', 'Red', 'Purple')
     }
   }
 

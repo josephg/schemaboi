@@ -1,9 +1,10 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumSchema, MapType, Schema, SType} from './schema.js'
-import { mergeSchemas, ref } from './utils.js'
+import {EnumSchema, MapType, Schema, StructSchema, SType} from './schema.js'
+import { enumOfStrings, mergeSchemas, ref } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
+import * as assert from 'assert/strict'
 import {Console} from 'node:console'
 const console = new Console({
   stdout: process.stdout,
@@ -12,17 +13,33 @@ const console = new Console({
 })
 
 const mapOf = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType})
+const mapOfEntries = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType, asEntryList: true})
 // const listOf = (fieldType: SType): List => ({type: 'list', fieldType})
 
-const enumOfStrings = (...variants: string[]): EnumSchema => ({
-  type: 'enum',
-  closed: false,
-  numericOnly: true,
-  variants: Object.fromEntries(variants.map(v => [v, {}])),
-  encodingOrder: variants,
-})
 
 const primitives = enumOfStrings('uint', 'sint', 'f32', 'f64', 'bool', 'string', 'binary', 'id')
+
+const structSchema: StructSchema = {
+  type: 'struct',
+  fields: {
+    foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
+    fields: { type: mapOfEntries(ref('StructField')), optional: false },
+  },
+  encode(e: StructSchema) {
+    return {
+      ...e,
+      fields: e.encodingOrder.map(key => [key, e.fields[key]])
+    }
+  },
+  decode(e: any): StructSchema {
+    return {
+      ...e,
+      fields: Object.fromEntries(e.fields),
+      encodingOrder: e.fields.map(([k, v]: [string, any]) => k),
+    }
+  },
+  encodingOrder: ['fields'],
+}
 
 export const metaSchema: Schema = {
   id: '_sbmeta',
@@ -90,29 +107,29 @@ export const metaSchema: Schema = {
               foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
               closed: { type: 'bool', optional: false },
               numericOnly: { type: 'bool', optional: false },
-              variants: { type: mapOf(ref('EnumVariant')), optional: false },
+              variants: { type: mapOfEntries(ref('EnumVariant')), optional: false },
               // encodingOrder: {
               //   type: listOf('string')
               // }
             },
-            encodingOrder: ['closed', 'numericOnly', 'variants']
+            encodingOrder: ['closed', 'numericOnly', 'variants'],
+            encode(e: EnumSchema) {
+              return {
+                ...e,
+                variants: e.encodingOrder.map(key => [key, e.variants[key]])
+              }
+            },
+            decode(e: any): EnumSchema {
+              return {
+                ...e,
+                variants: Object.fromEntries(e.variants),
+                encodingOrder: e.variants.map(([k, v]: [string, any]) => k),
+              }
+            },
           }
         },
         struct: {
-          associatedData: {
-            type: 'struct',
-
-            // I've copy+pasted this from the StructSchema code below. :(.
-            fields: {
-              foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
-              fields: { type: mapOf(ref('StructField')), optional: false },
-              // encoding order???
-            },
-            encodingOrder: ['fields'],
-
-            // fields: { inner: { type: ref('StructSchema'), optional: false } },
-            // encodingOrder: ['inner'],
-          }
+          associatedData: structSchema
         },
       },
       encodingOrder: ['enum', 'struct'],
@@ -126,15 +143,7 @@ export const metaSchema: Schema = {
       encodingOrder: ['associatedData'],
     },
 
-    StructSchema: {
-      type: 'struct',
-      fields: {
-        foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
-        fields: { type: mapOf(ref('StructField')), optional: false },
-        // encoding order???
-      },
-      encodingOrder: ['fields'],
-    },
+    StructSchema: structSchema,
 
     StructField: {
       type: 'struct',
@@ -160,6 +169,7 @@ const metameta = () => {
   const remoteSchema = readData(metaSchema, bytes)
   console.log(remoteSchema)
 
+  // assert.deepEqual(remoteSchema, metaSchema)
   // const m = mergeSchemas(remoteSchema, metaSchema)
   // console.log(m)
 

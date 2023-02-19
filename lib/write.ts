@@ -112,7 +112,9 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
 }
 
 //  = simpleSchemaEncoding(schema)
-function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, struct: StructSchema) {
+function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSchema) {
+  if (struct.encode) val = struct.encode(val)
+  
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
   if (hasOptionalFields(struct)) {

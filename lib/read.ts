@@ -90,7 +90,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
     result![type.renameFieldTo ?? f] = type.defaultValue ?? null
   }
 
-  return result
+  return struct.decode ? struct.decode(result!) : result
 }
 
 function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
@@ -279,9 +279,9 @@ const testRead2 = () => {
   const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
 
   const mergedSchema = mergeSchemas(fileSchema, appSchema)
-  // const fullSchema = combine(mergedSchema, encoding, toJs)
+  console.log(mergedSchema)
   console.log(readData(mergedSchema, b))
 }
 
 // testRead()
-// testRead2()
+testRead2()

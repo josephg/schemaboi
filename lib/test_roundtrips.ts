@@ -1,5 +1,5 @@
 import {SimpleSchema, Schema, EnumSchema} from "./schema.js"
-import { enumOfStrings, extendSchema, ref } from "./utils.js"
+import { enumOfStringsSimple, extendSchema, ref } from "./utils.js"
 import { readData } from "./read.js"
 import { toBinary } from "./write.js"
 
@@ -88,7 +88,7 @@ const testRoundTrip = (schema: SimpleSchema, input: any) => {
     id: 'Example',
     root: ref('Color'),
     types: {
-      Color: enumOfStrings('Red', 'Blue', 'Green'),
+      Color: enumOfStringsSimple('Red', 'Blue', 'Green'),
     }
   }
 
