@@ -41,10 +41,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   //    this will discard any foreign data.
   // 2. Parse the data but return it in a special way - eg {_external: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
-  if (!struct.mappedToJS) throw Error('NYI struct is not locally recognised!')
+  if (struct.foreign) throw Error('NYI struct is not locally recognised!')
 
   // We still need to parse the struct, even if its not locally known to advance the read position.
-  const result: Record<string, any> | null = !struct.mappedToJS ? null : {}
+  const result: Record<string, any> | null = struct.foreign ? null : {}
 
   const missingFields = new Set<string>()
   if (hasOptionalFields(struct)) {
@@ -61,7 +61,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   }
 
   // This is just for debugging.
-  const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => struct.fields[k].mappedToJS))
+  const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => !struct.fields[k].foreign))
 
   // console.log('missing fields', missingFields)
   for (const f of struct.encodingOrder) {
@@ -73,12 +73,12 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
       ? (type.defaultValue ?? null) // The field is optional and missing from the result.
       : readThing(r, schema, type.type)
 
-    if (type.mappedToJS) {
-      result![type.renameFieldTo ?? f] = thing
-    } else {
-      console.warn(`Warning: unknown field '${f}' in struct`)
+    if (type.foreign) {
+      console.warn(`Warning: foreign field '${f}' in struct`)
       result!._external ??= {}
       result!._external[f] = thing
+    } else {
+      result![type.renameFieldTo ?? f] = thing
     }
 
     expectedJsFields.delete(f)
@@ -111,7 +111,7 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
 
   if (e.numericOnly && associatedData != null) throw Error('Cannot decode associated data with numeric enum')
 
-  if (!variant.mappedToJS) {
+  if (variant.foreign) {
     // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
     return {type: '_unknown', data: {type: variantName, ...associatedData}}
   } else if (!e.numericOnly || associatedData != null) {
@@ -216,12 +216,11 @@ const testRead = () => {
     types: {
       Contact: {
         type: 'struct',
-        mappedToJS: true,
         encodingOrder: ['age', 'name'],
 
         fields: {
-          name: {type: 'string', mappedToJS: true, optional: false},
-          age: {type: 'uint', mappedToJS: true, optional: false}
+          name: {type: 'string', optional: false},
+          age: {type: 'uint', optional: false}
           // address: {type: 'string'},
         }
       }
@@ -241,10 +240,10 @@ const testRead2 = () => {
       Contact: {
         type: 'struct',
         encodingOrder: ['age', 'name'],
-        mappedToJS: false,
+        foreign: true,
         fields: {
-          name: {type: 'string', mappedToJS: false, optional: false},
-          age: {type: 'uint', mappedToJS: false, optional: false}
+          name: {type: 'string', foreign: true, optional: false},
+          age: {type: 'uint', foreign: true, optional: false}
           // address: {type: 'string'},
         }
       }
@@ -258,11 +257,10 @@ const testRead2 = () => {
       Contact: {
         type: 'struct',
         encodingOrder: [],
-        mappedToJS: true,
         fields: {
           // name: {type: 'string'},
-          age: {type: 'uint', mappedToJS: true, optional: true, renameFieldTo: 'yearsOld'},
-          address: {type: 'string', mappedToJS: true, optional: true, defaultValue: 'unknown location'},
+          age: {type: 'uint', optional: true, renameFieldTo: 'yearsOld'},
+          address: {type: 'string', optional: true, defaultValue: 'unknown location'},
         }
       }
     }

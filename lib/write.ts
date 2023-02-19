@@ -252,11 +252,10 @@ const simpleTest = () => {
     types: {
       Contact: {
         type: 'struct',
-        mappedToJS: true,
         encodingOrder: ['age', 'name'],
         fields: {
-          name: {type: 'string', mappedToJS: true, optional: true},
-          age: {type: 'uint', mappedToJS: true, optional: false}
+          name: {type: 'string', optional: true},
+          age: {type: 'uint', optional: false}
           // address: {type: 'string'},
         }
       }

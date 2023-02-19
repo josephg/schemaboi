@@ -28,7 +28,7 @@ export interface StructSchema {
   type: 'struct',
 
   /** Is the struct locally known / referenced? */
-  mappedToJS: boolean,
+  foreign?: boolean,
 
   fields: Record<string, {
     type: SType, // Schema type
@@ -37,7 +37,7 @@ export interface StructSchema {
     defaultValue?: any,
 
     optional: boolean,
-    mappedToJS: boolean,
+    foreign?: boolean,
     renameFieldTo?: string,
 
     // encodeMap?: MapEncoding<any>
@@ -49,7 +49,7 @@ export interface StructSchema {
 export interface EnumSchema {
   type: 'enum',
 
-  mappedToJS: boolean,
+  foreign?: boolean,
 
   closed: boolean,
   numericOnly: boolean,
@@ -57,7 +57,7 @@ export interface EnumSchema {
   variants: Record<string, {
     // renameFieldTo?: string,
     associatedData?: StructSchema,
-    mappedToJS: boolean,
+    foreign?: boolean,
   }>,
 
   encodingOrder: string[],

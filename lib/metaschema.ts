@@ -16,10 +16,9 @@ const mapOf = (valType: SType): MapType => ({type: 'map', keyType: 'string', val
 
 const enumOfStrings = (...variants: string[]): EnumSchema => ({
   type: 'enum',
-  mappedToJS: true,
   closed: false,
   numericOnly: true,
-  variants: Object.fromEntries(variants.map(v => [v, {mappedToJS: true}])),
+  variants: Object.fromEntries(variants.map(v => [v, {}])),
   encodingOrder: variants,
 })
 
@@ -32,13 +31,12 @@ export const metaSchema: Schema = {
   types: {
     Schema: {
       type: 'struct',
-      mappedToJS: true,
       fields: {
-        id: { type: 'string', optional: false, mappedToJS: true, },
+        id: { type: 'string', optional: false },
 
         // Should this be optional or not?
-        root: { type: ref('SType'), optional: true, mappedToJS: true, },
-        types: { type: mapOf(ref('SchemaType')), optional: false, mappedToJS: true, },
+        root: { type: ref('SType'), optional: true },
+        types: { type: mapOf(ref('SchemaType')), optional: false },
       },
       encodingOrder: ['id', 'root', 'types']
     },
@@ -48,37 +46,30 @@ export const metaSchema: Schema = {
     SType: {
       // This has all the types in Primitive, and more!
       type: 'enum',
-      mappedToJS: true,
       closed: false,
       numericOnly: false,
       variants: {
         ...primitives.variants,
         ref: {
-          mappedToJS: true,
           associatedData: {
             type: 'struct',
-            mappedToJS: true,
-            fields: { key: { type: 'string', mappedToJS: true, optional: false } },
+            fields: { key: { type: 'string', optional: false } },
             encodingOrder: ['key'],
           }
         },
         list: {
-          mappedToJS: true,
           associatedData: {
             type: 'struct',
-            mappedToJS: true,
-            fields: { fieldType: { type: ref('SType'), mappedToJS: true, optional: false } },
+            fields: { fieldType: { type: ref('SType'), optional: false } },
             encodingOrder: ['fieldType'],
           }
         },
         map: {
-          mappedToJS: true,
           associatedData: {
             type: 'struct',
-            mappedToJS: true,
             fields: {
-              keyType: { type: ref('Primitive'), mappedToJS: true, optional: false },
-              valType: { type: ref('SType'), mappedToJS: true, optional: false },
+              keyType: { type: ref('Primitive'), optional: false },
+              valType: { type: ref('SType'), optional: false },
             },
             encodingOrder: ['keyType', 'valType'],
           }
@@ -91,18 +82,15 @@ export const metaSchema: Schema = {
       type: 'enum',
       closed: true, // TODO: ??? Am I sure about this?
       numericOnly: false,
-      mappedToJS: true,
       variants: {
         enum: {
-          mappedToJS: true,
           associatedData: {
             type: 'struct',
-            mappedToJS: true,
             fields: {
-              mappedToJS: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
-              closed: { type: 'bool', mappedToJS: true, optional: false },
-              numericOnly: { type: 'bool', mappedToJS: true, optional: false },
-              variants: { type: mapOf(ref('EnumVariant')), mappedToJS: true, optional: false },
+              foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
+              closed: { type: 'bool', optional: false },
+              numericOnly: { type: 'bool', optional: false },
+              variants: { type: mapOf(ref('EnumVariant')), optional: false },
               // encodingOrder: {
               //   type: listOf('string')
               // }
@@ -111,20 +99,18 @@ export const metaSchema: Schema = {
           }
         },
         struct: {
-          mappedToJS: true,
           associatedData: {
             type: 'struct',
-            mappedToJS: true,
 
             // I've copy+pasted this from the StructSchema code below. :(.
             fields: {
-              mappedToJS: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
-              fields: { type: mapOf(ref('StructField')), mappedToJS: true, optional: false },
+              foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
+              fields: { type: mapOf(ref('StructField')), optional: false },
               // encoding order???
             },
             encodingOrder: ['fields'],
 
-            // fields: { inner: { type: ref('StructSchema'), mappedToJS: true, optional: false } },
+            // fields: { inner: { type: ref('StructSchema'), optional: false } },
             // encodingOrder: ['inner'],
           }
         },
@@ -134,19 +120,17 @@ export const metaSchema: Schema = {
 
     EnumVariant: {
       type: 'struct',
-      mappedToJS: true,
       fields: {
-        associatedData: { type: ref('StructSchema'), mappedToJS: true, optional: true }
+        associatedData: { type: ref('StructSchema'), optional: true }
       },
       encodingOrder: ['associatedData'],
     },
 
     StructSchema: {
       type: 'struct',
-      mappedToJS: true,
       fields: {
-        mappedToJS: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
-        fields: { type: mapOf(ref('StructField')), mappedToJS: true, optional: false },
+        foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
+        fields: { type: mapOf(ref('StructField')), optional: false },
         // encoding order???
       },
       encodingOrder: ['fields'],
@@ -154,13 +138,12 @@ export const metaSchema: Schema = {
 
     StructField: {
       type: 'struct',
-      mappedToJS: true,
       fields: {
-        type: { type: ref('SType'), mappedToJS: true, optional: false },
-        // defaultValue: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
-        optional: { type: 'bool', mappedToJS: true, optional: false },
-        mappedToJS: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
-        renameFieldTo: { type: 'bool', mappedToJS: true, defaultValue: false, optional: true }, // Not stored.
+        type: { type: ref('SType'), optional: false },
+        // defaultValue: { type: 'bool', defaultValue: false, optional: true }, // Not stored.
+        optional: { type: 'bool', optional: false },
+        foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
+        renameFieldTo: { type: 'bool', defaultValue: false, optional: true }, // Not stored.
       },
       encodingOrder: ['type', 'optional'],
     },

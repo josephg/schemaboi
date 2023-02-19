@@ -57,7 +57,7 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
   // Merge them.
   return {
     type: 'struct',
-    mappedToJS: local.mappedToJS,
+    foreign: local.foreign,
     fields: mergeObjectsAll(remote.fields, local.fields, (af, bf) => {
       // Check the fields are compatible.
       if (af && bf && !typesShallowEq(af.type, bf.type)) throw Error('Incompatible types in struct field')
@@ -66,7 +66,7 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
         type: bf?.type ?? af!.type,
         defaultValue: bf?.defaultValue,
         optional: af?.optional ?? true, // A field being optional is part of the encoding.
-        mappedToJS: bf?.mappedToJS ?? false,
+        mappedToJS: bf?.foreign ?? true,
       }
     }),
     encodingOrder: remote.encodingOrder,
@@ -84,7 +84,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
 
   const result: EnumSchema = {
     type: 'enum',
-    mappedToJS: local.mappedToJS,
+    foreign: local.foreign,
     numericOnly: local.numericOnly,
     // I think this behaviour is correct...
     closed: remote.closed || local.closed,
@@ -102,7 +102,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     result.variants[key] = aa == null ? bb
       : bb == null ? aa
       : {
-          mappedToJS: bb.mappedToJS,
+          foreign: bb.foreign,
           associatedData: aa.associatedData == null ? bb.associatedData
             : bb.associatedData == null ? aa.associatedData
             : mergeStructs(aa.associatedData, bb.associatedData)
@@ -133,7 +133,7 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
       if (aa == null) return bb!
       if (bb == null) return {
         ...aa,
-        mappedToJS: false,
+        foreign: true,
       }
 
       if (aa.type !== bb.type) throw Error(`Cannot merge ${aa.type} with ${bb.type}`) // enums and structs can't mix.
@@ -156,12 +156,10 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
 function extendStruct(s: SimpleStructSchema): StructSchema {
   return {
     type: 'struct',
-    mappedToJS: true,
     fields: objMap(s.fields, f => ({
       type: f.type,
       defaultValue: f.defaultValue,
       optional: f.optional ?? true,
-      mappedToJS: true,
     })),
     encodingOrder: Object.keys(s.fields),
   }
@@ -170,12 +168,10 @@ function extendStruct(s: SimpleStructSchema): StructSchema {
 function extendEnum(s: SimpleEnumSchema): EnumSchema {
   return {
     type: 'enum',
-    mappedToJS: true,
     closed: s.closed ?? false,
     numericOnly: s.numericOnly,
     variants: objMap(s.variants, v => ({
       associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
-      mappedToJS: true,
     })),
     encodingOrder: Object.keys(s.variants)
   }

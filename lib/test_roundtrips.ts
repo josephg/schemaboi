@@ -148,8 +148,8 @@ const testRoundTrip = (schema: SimpleSchema, input: any) => {
   }
 
   let schema = extendSchema(SimpleSchema)
-  ;(schema.types['Color'] as EnumSchema).variants['Red'].mappedToJS = false
-  ;(schema.types['Color'] as EnumSchema).variants['RGB'].mappedToJS = false
+  ;(schema.types['Color'] as EnumSchema).variants['Red'].foreign = true
+  ;(schema.types['Color'] as EnumSchema).variants['RGB'].foreign = true
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'RGB', r: 123, g: 2, b: 1}})
