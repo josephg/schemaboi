@@ -124,9 +124,11 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
     // The bits are packed from least to most significant, in order of the the optionalBits fields.
     for (let i = struct.encodingOrder.length - 1; i >= 0; --i) {
       const k = struct.encodingOrder[i]
-      if (!struct.fields[k].optional) continue
+      const field = struct.fields[k]
+      if (field == null) throw Error(`encodingOrder mentions field '${k}' that is missing from the schema`)
 
-      const fieldName = struct.fields[k].renameFieldTo ?? k
+      if (!field.optional) continue
+      const fieldName = field.renameFieldTo ?? k
       const fieldMissing = val[fieldName] == null
       // console.log(i, 'k', k, fieldMissing)
       optionalBits = mixBit(optionalBits, fieldMissing)
@@ -144,7 +146,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
     if (v == null) {
       if (field.optional) continue // We've already encoded that the field is missing, above.
       else if (field.defaultValue != null) v = field.defaultValue
-      else throw Error('null or missing field required by encoding')
+      else throw Error(`null or missing field '${fieldName}' required by encoding`)
     }
 
     encodeThing(w, schema, v, field.type)
@@ -179,6 +181,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
   writeVarInt(w, variantNum)
   if (variant.associatedData) {
+    // console.log('Encode associated data')
     encodeStruct(w, schema, associatedData, variant.associatedData)
   }
 }
@@ -190,6 +193,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
         const innerType = schema.types[type.key]
         switch (innerType.type) {
           case 'struct':
+            // console.log('encode ref', type.key)
             encodeStruct(w, schema, val, innerType)
             break
           case 'enum':

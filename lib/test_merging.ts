@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict'
-import { EnumSchema, Schema, SimpleSchema } from './schema.js'
+import { EnumSchema, Schema } from './schema.js'
 import { extendSchema, mergeSchemas, ref } from './utils.js'
 
 const testClosedEnum = () => {

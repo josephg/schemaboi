@@ -1,4 +1,13 @@
 
+/*
+
+- Packed bit fields
+- Ignored fields (toJS)
+- Mapping & read / write visitors
+- Metaschema 2.0
+
+*/
+
 export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
@@ -9,6 +18,11 @@ export interface MapType { // MapType rather than Map because Map is the name of
   valType: SType
 }
 export type SType = Primitive | Ref | List | MapType
+
+// export type MapEncoding<T> = {
+//   fromEntries: (entries: [any, any][]) => T,
+//   toEntries: (data: T) => [any, any][],
+// }
 
 export interface StructSchema {
   type: 'struct',
@@ -25,6 +39,8 @@ export interface StructSchema {
     optional: boolean,
     mappedToJS: boolean,
     renameFieldTo?: string,
+
+    // encodeMap?: MapEncoding<any>
   }>,
 
   encodingOrder: string[],
