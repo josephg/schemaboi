@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
 import {EnumSchema, MapType, Schema, SType} from './schema.js'
-import { ref } from './utils.js'
+import { mergeSchemas, ref } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 import {Console} from 'node:console'
@@ -157,7 +157,11 @@ export const metaSchema: Schema = {
 const metameta = () => {
   const bytes = toBinary(metaSchema, metaSchema)
   console.log(bytes)
-  console.log(readData(metaSchema, bytes))
+  const remoteSchema = readData(metaSchema, bytes)
+  console.log(remoteSchema)
+
+  // const m = mergeSchemas(remoteSchema, metaSchema)
+  // console.log(m)
 
 }
 

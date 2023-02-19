@@ -215,7 +215,10 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
         break
       }
       case 'map': {
-        const entries = Object.entries(val)
+        // Maps can also be provided as a list of [k,v] entries.
+        const entries = Array.isArray(val)
+          ? val
+          : Object.entries(val)
         writeVarInt(w, entries.length)
         for (const [k, v] of entries) {
           encodePrimitive(w, k, type.keyType)

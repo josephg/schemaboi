@@ -15,7 +15,8 @@ export type List = {type: 'list', fieldType: SType}
 export interface MapType { // MapType rather than Map because Map is the name of a builtin type.
   type: 'map',
   keyType: Primitive
-  valType: SType
+  valType: SType,
+  asEntryList?: true,
 }
 export type SType = Primitive | Ref | List | MapType
 

@@ -181,13 +181,23 @@ function readThing(r: Reader, schema: Schema, type: SType): any {
       case 'map': {
         if (type.keyType !== 'string') throw Error('Cannot read map with non-string keys in javascript')
         const length = readVarInt(r)
-        const result: Record<string, any> = {}
-        for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, type.keyType)
-          const v = readThing(r, schema, type.valType)
-          result[k] = v
+        if (type.asEntryList) {
+          const entries = []
+          for (let i = 0; i < length; i++) {
+            const k = readPrimitive(r, type.keyType)
+            const v = readThing(r, schema, type.valType)
+            entries.push([k, v])
+          }
+          return entries
+        } else {
+          const result: Record<string, any> = {}
+          for (let i = 0; i < length; i++) {
+            const k = readPrimitive(r, type.keyType)
+            const v = readThing(r, schema, type.valType)
+            result[k] = v
+          }
+          return result
         }
-        return result
       }
       default:
         const expectNever: never = type

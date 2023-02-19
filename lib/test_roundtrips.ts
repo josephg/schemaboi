@@ -55,6 +55,17 @@ const testRoundTrip = (schema: SimpleSchema, input: any) => {
 }
 
 {
+  // Map as entry list
+  const schema: SimpleSchema = {
+    id: 'Example',
+    root: {type: 'map', keyType: 'string', valType: 'f64', asEntryList: true},
+    types: {}
+  }
+
+  testRoundTrip(schema, [['aa', 123], ['bb', 213.23]])
+}
+
+{
   const schema: SimpleSchema = {
     id: 'Example',
     root: ref('Contact'),
