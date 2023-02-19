@@ -1,6 +1,6 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema_merge.js"
-import { extendSchema, hasOptionalFields, ref } from "./utils_merge.js"
+import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
+import { extendSchema, hasOptionalFields, ref } from "./utils.js"
 
 import assert from 'assert/strict'
 import {Console} from 'node:console'

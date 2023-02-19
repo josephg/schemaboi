@@ -1,20 +1,4 @@
 
-/* TODO:
-
-- ~Struct~
-- ~List~
-- ~Enum~
-- ~Map~
-- ~Enum known & unknown variants, closed / open~.
-- Packed bit fields
-- String coalescing
-- Ignored fields (toJS)
-- Mapping & read / write visitors
-- Metaschema 2.0
-
-*/
-
-
 export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
@@ -26,244 +10,89 @@ export interface MapType { // MapType rather than Map because Map is the name of
 }
 export type SType = Primitive | Ref | List | MapType
 
-export interface StructPureSchema {
-  type: 'struct'
+export interface StructSchema {
+  type: 'struct',
+
+  /** Is the struct locally known / referenced? */
+  mappedToJS: boolean,
+
   fields: Record<string, {
-    type: SType,
+    type: SType, // Schema type
 
-    [k: string]: any
-  }>
+    /** If the field is missing in the data set, use this value instead of null when decoding. */
+    defaultValue?: any,
 
-  [k: string]: any
-  // default?
+    optional: boolean,
+    mappedToJS: boolean,
+    renameFieldTo?: string,
+  }>,
+
+  encodingOrder: string[],
 }
 
-export interface EnumPureSchema {
+export interface EnumSchema {
   type: 'enum',
-  closed?: boolean, // Default false.
-  // flat?: boolean,
+
+  mappedToJS: boolean,
+
+  closed: boolean,
+  numericOnly: boolean,
+
   variants: Record<string, {
-    associatedData?: StructPureSchema
-  }>
+    // renameFieldTo?: string,
+    associatedData?: StructSchema,
+    mappedToJS: boolean,
+  }>,
 
-  [k: string]: any
+  encodingOrder: string[],
 }
 
-export interface PureSchema {
+export interface Schema {
   id: string,
-  root: SType
-  types: Record<string, StructPureSchema | EnumPureSchema>
+  root: SType, // TODO: Consider making the optional.
+  types: Record<string, StructSchema | EnumSchema>
 }
 
-export type Schema = PureSchema & SchemaEncoding & SchemaToJS
-export type StructSchema = StructPureSchema & StructEncoding & StructToJS
-export type EnumSchema = EnumPureSchema & EnumEncoding & EnumToJS
+
+
+// *****************
+
+/**
+ * This is the stuff you need to define to make a type. It can be extended to a
+ * full schema (with encoding information) via utility methods.
+ */
+export interface SimpleSchema {
+  id: string,
+  root: SType, // TODO: Consider making this optional.
+  types: Record<string, SimpleStructSchema | SimpleEnumSchema>
+}
+
+export interface SimpleStructSchema {
+  type: 'struct',
+
+  fields: Record<string, {
+    type: SType, // Schema type
+
+    /** If the field is missing in the data set, use this value instead of null when decoding. */
+    defaultValue?: any,
+    optional?: boolean,
+    // renameFieldTo?: string,
+  }>,
+}
+
+export interface SimpleEnumSchema {
+  type: 'enum',
+
+  closed?: boolean,
+  numericOnly: boolean,
+
+  variants: Record<string, {
+    // renameFieldTo?: string,
+    associatedData?: SimpleStructSchema,
+  } | null>,
+}
+
 
 export type EnumObject = string
   | {type: string, [k: string]: any}
   | {type: '_unknown', data: {type: string, [k: string]: any}}
-
-// *** File to schema mapping ***
-
-export interface StructEncoding {
-  type: 'struct',
-  // Any fields not listed here are not included in the file data, and should be null, default or error.
-  //
-  // The order here is important. Fields are listed in the order that their data is written to the file.
-  //
-  // TODO: Bit pack adjacent booleans.
-  fieldOrder: string[],
-  optionalOrder: string[],
-
-  [k: string]: any
-}
-
-export interface EnumEncoding {
-  type: 'enum',
-  // If a variant doesn't show up here, the encoding doesn't support that variant.
-  variantOrder: string[],
-  variants: Record<string, {
-    associatedData?: StructEncoding
-  }>
-  [k: string]: any
-}
-
-export interface SchemaEncoding {
-  id: string,
-  types: Record<string, StructEncoding | EnumEncoding>
-}
-
-// *** Schema to javascript mapping ***
-
-export interface StructToJS {
-  type: 'struct',
-
-  /**
-   * This known field here is only necessary because we create a union of Encoding / Schema / ToJS info.
-   * If false, this type is locally unknown.
-   */
-  mappedToJS: boolean,
-  fields: Record<string, {
-    mappedToJS: boolean,
-    defaultValue?: any, // If the field is missing in the data set, use this value instead of null.
-    renameFieldTo?: string, // Overrides the field's key name in schema
-
-    [k: string]: any
-  }>
-
-  [k: string]: any
-}
-
-export interface EnumToJS {
-  type: 'enum',
-  // known: boolean
-  variants: Record<string, {
-    mappedToJS: boolean,
-    associatedData?: StructToJS
-  }>
-
-  // typeOnParent
-  // useStringsWhenNoFields
-  // {type: foo, ...} or {foo: {...}} or whatever.
-
-  [k: string]: any
-}
-
-export interface SchemaToJS {
-  id: string,
-  // TODO.
-  types: Record<string, StructToJS | EnumToJS>
-}
-
-
-
-// export const enumOfStrings = (strings: string[]): Enum => ({
-//   type: 'enum',
-//   variants: strings.map(s => ({key: s}))
-// })
-
-export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
-
-
-// export const metaSchema: Schema = {
-//   id: '_sbmeta',
-//   root: ref('Schema'),
-
-//   types: {
-//     Schema: {
-//       type: 'struct',
-//       encodeOptional: 'none',
-//       fields: [
-//         {key: 'id', valType: 'string'},
-//         {key: 'root', valType: ref('SType')},
-//         {key: 'types', valType: {
-//           type: 'map',
-//           keyType: 'string',
-//           valType: ref('SType')}
-//         },
-//       ]
-//     },
-
-//     Ref: {
-//       type: 'struct',
-//       encodeOptional: 'none',
-//       fields: [
-//         // {key: 'type', valType: 'string', localOnly: true},
-//         {key: 'key', valType: 'string'},
-//       ]
-//     },
-
-//     EnumVariant: {
-//       type: 'struct',
-//       encodeOptional: 'bitfield',
-//       fields: [
-//         {key: 'key', valType: 'string'},
-//         {key: 'associatedData', valType: {
-//           type: 'enum',
-//           variants: [
-//             {key: 'struct', associatedData: ref('Struct')},
-//             {key: 'ref', associatedData: {
-//               type: 'struct',
-//               encodeOptional: 'bitfield',
-//               fields: [
-//                 {key: 'key', valType: 'string'},
-//               ]
-//             }},
-//           ]
-//         }}
-//       ]
-//     },
-
-//     Enum: {
-//       type: 'struct',
-//       encodeOptional: 'none',
-//       fields: [
-//         // Upsettingly, this still shows up in the binary encoding of metaSchema.
-//         {key: 'typeOnParent', valType: 'bool', localOnly: true},
-//         // {key: 'type', valType: 'string', localOnly: true},
-//         {key: 'variants', valType: {type: 'list', fieldType: ref('EnumVariant')}}
-//       ]
-//     },
-
-//     Struct: {
-//       type: 'struct',
-//       encodeOptional: 'bitfield',
-//       fields: [
-//         // {key: 'type', valType: 'string', localOnly: true}, // For now!
-//         {key: 'fields', valType: {type: 'list', fieldType: ref('Field')}},
-//         {key: 'encodeOptional', valType: enumOfStrings(['bitfield', 'none'])}
-//       ]
-//     },
-
-//     Field: {
-//       type: 'struct',
-//       encodeOptional: 'bitfield',
-//       fields: [
-//         {key: 'key', valType: 'string'},
-//         {key: 'valType', valType: ref('SType')},
-//         //  TODO: Default!
-//         {key: 'encodeMissingAsDefault', valType: 'bool'},
-//         {key: 'localOnly', valType: 'bool', localOnly: true}, // Quite funny!
-//       ]
-//     },
-
-//     Map: {
-//       type: 'struct',
-//       encodeOptional: 'none',
-//       fields: [
-//         {key: 'keyType', valType: enumOfStrings(['uint', 'sint', 'f32', 'f64', 'bool', 'string', 'binary'])},
-//         {key: 'valType', valType: ref('SType')}
-//       ]
-//     },
-
-//     SType: {
-//       type: 'enum',
-//       variants: [
-//         {key: 'uint'},
-//         {key: 'sint'},
-//         {key: 'f32'},
-//         {key: 'f64'},
-//         {key: 'bool'},
-//         {key: 'string'},
-//         {key: 'id'},
-//         {key: 'binary'},
-//         {key: 'list', associatedData: {
-//           type: 'struct',
-//           encodeOptional: 'none',
-//           fields: [
-//             {key: 'fieldType', valType: ref('SType')} // Recursive.
-//           ]
-//         }},
-
-//         {key: 'ref', associatedData: {
-//           type: 'struct',
-//           encodeOptional: 'bitfield',
-//           fields: [{key: 'key', valType: 'string'}]
-//         }},
-//         {key: 'struct', associatedData: ref('Struct')},
-//         {key: 'enum', associatedData: ref('Enum')},
-//         {key: 'map', associatedData: ref('Map')},
-//       ]
-//     }
-//   }
-// }

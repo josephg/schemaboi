@@ -1,7 +1,7 @@
 import { readData } from "./read.js";
-import {SimpleSchema, Schema, EnumSchema} from "./schema_merge.js";
+import {SimpleSchema, Schema, EnumSchema} from "./schema.js";
 import { toBinary } from "./write.js";
-import { enumOfStrings, extendSchema, ref } from "./utils_merge.js";
+import { enumOfStrings, extendSchema, ref } from "./utils.js";
 
 import * as assert from 'assert/strict'
 import {Console} from 'node:console'

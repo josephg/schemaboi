@@ -1,4 +1,4 @@
-import { EnumEncoding, EnumPureSchema, EnumSchema, EnumToJS, List, MapType, PureSchema, Ref, ref, Schema, SchemaEncoding, SchemaToJS, StructEncoding, StructPureSchema, StructSchema, StructToJS, SType } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -28,6 +28,22 @@ const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a
   return result
 }
 
+const mergeObjectsAll = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T | null, b: T | null) => T): Record<string, T> => {
+  const result: Record<string, T> = {}
+  for (const key of mergedKeys(a, b)) {
+    const aa = a[key] ?? null
+    const bb = b[key] ?? null
+
+    result[key] = mergeFn(aa, bb)
+  }
+
+  return result
+}
+
+export const mergedKeys = <T = any>(a: Record<string, T>, b: Record<string, T>): Iterable<string> => (
+  new Set([...Object.keys(a), ...Object.keys(b)])
+)
+
 const objMap = <A, B>(obj: Record<string, A>, mapFn: (a: A, key: string) => B): Record<string, B> => {
   const result: Record<string, B> = {}
   for (const k in obj) {
@@ -36,39 +52,57 @@ const objMap = <A, B>(obj: Record<string, A>, mapFn: (a: A, key: string) => B): 
   return result
 }
 
-function mergeStructs(a: StructPureSchema, b: StructPureSchema): StructPureSchema {
+function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
   // console.log('merge', a, b)
   // Merge them.
   return {
     type: 'struct',
-    fields: mergeObjects(a.fields, b.fields, (af, bf) => {
+    mappedToJS: local.mappedToJS,
+    fields: mergeObjectsAll(remote.fields, local.fields, (af, bf) => {
       // Check the fields are compatible.
-      if (!typesShallowEq(af.type, bf.type)) throw Error('Incompatible types in struct field')
-      // Keep either.
-      return af
-    })
+      if (af && bf && !typesShallowEq(af.type, bf.type)) throw Error('Incompatible types in struct field')
+
+      return {
+        type: bf?.type ?? af!.type,
+        defaultValue: bf?.defaultValue,
+        optional: af?.optional ?? true, // A field being optional is part of the encoding.
+        mappedToJS: bf?.mappedToJS ?? false,
+      }
+    }),
+    encodingOrder: remote.encodingOrder,
   }
 }
 
-function mergeEnums(a: EnumPureSchema, b: EnumPureSchema): EnumPureSchema {
+function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
   // I would use mergeObjects from above, but if one (or both) of the enums is closed, we need to make sure
   // fields aren't added when they aren't valid.
-  const result: EnumPureSchema = {
-    type: 'enum',
-    closed: !!(a.closed || b.closed),
-    variants: {}
+
+  if (local.numericOnly && !remote.numericOnly) {
+    // TODO: Not sure what to do in this case.
+    console.warn("numericOnly does not match. Remote schema may include associated data.")
   }
 
-  for (const key of mergedKeys(a.variants, b.variants)) {
-    const aa = a.variants[key]
-    const bb = b.variants[key]
+  const result: EnumSchema = {
+    type: 'enum',
+    mappedToJS: local.mappedToJS,
+    numericOnly: local.numericOnly,
+    // I think this behaviour is correct...
+    closed: remote.closed || local.closed,
+    variants: {},
+    encodingOrder: remote.encodingOrder,
+  }
 
-    if (aa == null && a.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
-    if (bb == null && b.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+  for (const key of mergedKeys(remote.variants, local.variants)) {
+    const aa = remote.variants[key]
+    const bb = local.variants[key]
+
+    if (aa == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+    if (bb == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
 
     result.variants[key] = aa == null ? bb
       : bb == null ? aa
       : {
+          mappedToJS: bb.mappedToJS,
           associatedData: aa.associatedData == null ? bb.associatedData
             : bb.associatedData == null ? aa.associatedData
             : mergeStructs(aa.associatedData, bb.associatedData)
@@ -78,38 +112,39 @@ function mergeEnums(a: EnumPureSchema, b: EnumPureSchema): EnumPureSchema {
   return result
 }
 
-// function mergeEnums(a: EnumPureSchema, b: EnumPureSchema): EnumPureSchema {
-//   return {
-//     type: 'enum',
-//     variants: mergeObjects(a.variants, b.variants, (aa, bb) => {
-//       return {
-//         associatedData: aa.associatedData == null ? bb.associatedData
-//           : bb.associatedData == null ? aa.associatedData
-//           : mergeStructs(aa.associatedData, bb.associatedData)
-//       }
-//     })
-//   }
-// }
 
-export function mergeSchemas(a: PureSchema | Schema, b: PureSchema | Schema): PureSchema {
-  if (a.id != b.id) throw Error('Incompatible schemas')
-  if (!typesShallowEq(a.root, b.root)) throw Error('Incompatible root elements')
+/**
+ * Merge the schema found on disk with the local schema.
+ *
+ * This will use the encoding information from remote, and the JS mapping
+ * information from the local schema.
+ *
+ * The set of types in the result will be the union of both. It is illegal
+ * for a type or field with the same name to have different types.
+ */
+export function mergeSchemas(remote: Schema, local: Schema): Schema {
+  if (remote.id != local.id) throw Error('Incompatible schemas')
+  if (!typesShallowEq(remote.root, local.root)) throw Error('Incompatible root elements')
 
-  // I'm going to use A's naming system. (Its possible for both schemas to use different type names).
-  //
-  // And I'm going to copy all types from both schemas.
   return {
-    id: a.id,
-    root: a.root, // Ok since a.root shallow eq b.root.
-    types: mergeObjects(a.types, b.types, (aa, bb) => {
+    id: local.id,
+    root: local.root,
+    types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructSchema | EnumSchema => {
+      if (aa == null) return bb!
+      if (bb == null) return {
+        ...aa,
+        mappedToJS: false,
+      }
+
       if (aa.type !== bb.type) throw Error(`Cannot merge ${aa.type} with ${bb.type}`) // enums and structs can't mix.
 
       if (aa.type === 'struct') {
-        return structEq(aa, bb as StructPureSchema)
-          ? aa
-          : mergeStructs(aa, bb as StructPureSchema)
+        return mergeStructs(aa, bb as StructSchema)
+        // return structEq(aa, bb as StructSchema)
+        //   ? aa
+        //   : mergeStructs(aa, bb as StructSchema)
       } else if (aa.type === 'enum') {
-        return mergeEnums(aa, bb as EnumPureSchema)
+        return mergeEnums(aa, bb as EnumSchema)
       } else {
         let check: never = aa
         throw Error('unexpected type: ' + aa)
@@ -118,134 +153,47 @@ export function mergeSchemas(a: PureSchema | Schema, b: PureSchema | Schema): Pu
   }
 }
 
-const simpleEncodingForStruct = (s: StructPureSchema): StructEncoding => {
-  const fields = Object.keys(s.fields)
+function extendStruct(s: SimpleStructSchema): StructSchema {
   return {
     type: 'struct',
-    fieldOrder: fields,
-    optionalOrder: fields,
+    mappedToJS: true,
+    fields: objMap(s.fields, f => ({
+      type: f.type,
+      defaultValue: f.defaultValue,
+      optional: f.optional ?? true,
+      mappedToJS: true,
+    })),
+    encodingOrder: Object.keys(s.fields),
   }
 }
 
-/** This function generates a trivial schema encoding for the specified schema. It will not be optimized */
-export function simpleSchemaEncoding(schema: PureSchema): SchemaEncoding {
+function extendEnum(s: SimpleEnumSchema): EnumSchema {
   return {
-    id: schema.id,
-    types: objMap(schema.types, (schemaType) => {
-      switch (schemaType.type) {
-        case 'struct': {
-          return simpleEncodingForStruct(schemaType)
-        }
-
-        case 'enum': {
-          return <EnumEncoding>{
-            type: 'enum',
-            mappedToJS: true,
-            variantOrder: Object.keys(schemaType.variants),
-            variants: objMap(schemaType.variants, v => {
-              return v.associatedData ? {
-                associatedData: simpleEncodingForStruct(v.associatedData)
-              } : {}
-            })
-          }
-        }
-      }
-    })
+    type: 'enum',
+    mappedToJS: true,
+    closed: s.closed ?? false,
+    numericOnly: s.numericOnly,
+    variants: objMap(s.variants, v => ({
+      associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
+      mappedToJS: true,
+    })),
+    encodingOrder: Object.keys(s.variants)
   }
 }
 
-/** The resulting JS map assumes we know all fields, everything is nullable and nothing is renamed. */
-export function simpleJsMap(schema: PureSchema): SchemaToJS {
+export function extendSchema(schema: SimpleSchema): Schema {
   return {
-    id: schema.id,
-    types: objMap(schema.types, (s): StructToJS | EnumToJS => {
-      switch (s.type) {
-        case 'struct': {
-          return <StructToJS>{
-            type: 'struct',
-            mappedToJS: true,
-            fields: objMap(s.fields, () => ({mappedToJS: true}))
-          }
-        }
-
-        case 'enum': {
-          return <EnumToJS>{
-            type: 'enum',
-            variants: objMap(s.variants, s => {
-              return {
-                mappedToJS: true,
-                associatedData: s.associatedData ? <StructToJS>{
-                  type: 'struct',
-                  mappedToJS: true,
-                  fields: objMap(s.associatedData.fields, () => ({mappedToJS: true}))
-                } : undefined,
-              }
-            })
-          }
-        }
-      }
-    })
-  }
-}
-
-const combineStruct = (s: StructPureSchema, e: StructEncoding, j: StructToJS): StructSchema => {
-  return <StructSchema>{
-    type: 'struct',
-    mappedToJS: j.mappedToJS,
-    fieldOrder: e.fieldOrder,
-    optionalOrder: e.optionalOrder,
-    fields: objMap(s.fields, (sf, f) => ({
-      ...sf,
-      ...j.fields[f],
-    }))
-  }
-}
-
-export function combine(schema: PureSchema, encoding: SchemaEncoding, toJs: SchemaToJS): Schema {
-  if (schema.id !== encoding.id || encoding.id !== toJs.id) throw Error('Mismatched schemas')
-
-  const result: Schema = {
     id: schema.id,
     root: schema.root,
-    types: objMap(schema.types, (s, name): StructSchema | EnumSchema => {
-
-      switch (s.type) {
-        case 'struct': {
-          const e = encoding.types[name] as StructEncoding
-          const j = (toJs.types[name] ?? {mappedToJS: false, fields: {}}) as StructToJS
-
-          return combineStruct(s, e, j)
-        }
-
-        case 'enum': {
-          const e = encoding.types[name] as EnumEncoding
-          const j = toJs.types[name] as EnumToJS
-
-          return <EnumSchema>{
-            type: 'enum',
-            variantOrder: e.variantOrder,
-            variants: objMap(s.variants, (v, name) => ({
-              // TODO: Put null checks on this stuff.
-              mappedToJS: j.variants[name].mappedToJS,
-              associatedData: v.associatedData ? combineStruct(v.associatedData,
-                  e.variants[name].associatedData!,
-                  j.variants[name].associatedData!
-              ) : undefined
-            }))
-          }
-        }
-      }
-    })
+    types: objMap(schema.types, s => (
+      s.type === 'enum' ? extendEnum(s) : extendStruct(s)
+    ))
   }
 
-  return result
-}
-
-export function simpleFullSchema(schema: PureSchema): Schema {
-  return combine(schema,
-    simpleSchemaEncoding(schema),
-    simpleJsMap(schema)
-  )
+  // return combine(schema,
+  //   simpleSchemaEncoding(schema),
+  //   simpleJsMap(schema)
+  // )
 }
 
 
@@ -272,50 +220,57 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
   }
 }
 
-export const mergedKeys = <T = any>(a: Record<string, T>, b: Record<string, T>): Iterable<string> => (
-  new Set([...Object.keys(a), ...Object.keys(b)])
+// export const structEq = (a: StructSchema | SimpleStructSchema, b: StructSchema | SimpleStructSchema): boolean => {
+//   for (const k of mergedKeys(a.fields, b.fields)) {
+//     let af = a.fields[k]
+//     let bf = b.fields[k]
+//     if (af == null || bf == null) return false
+
+//     if (!typesShallowEq(af.type, bf.type)) return false
+//   }
+
+//   // console.log('struct eq')
+
+//   return true
+// }
+
+// type Oracle = Record<string, StructSchema | SimpleStructSchema>
+// export const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean => {
+//   if (a === b) return true
+//   if (typeof a === 'string' || typeof b === 'string') return false
+//   if (a.type !== b.type) return false
+
+//   switch (a.type) {
+//     case 'ref':
+//       if (a.key !== (b as Ref).key) return false
+//       return structEq(aOracle[a.key], bOracle[a.key])
+//     case 'list':
+//       return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
+//     case 'map':
+//       const bb = b as MapType
+//       return a.keyType === bb.keyType && typesEq(a.valType, bb.valType, aOracle, bOracle)
+//     // Other cases (when added) will generate a type error.
+//   }
+// }
+
+export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
+
+export const enumOfStrings = (...variants: string[]): SimpleEnumSchema => ({
+  type: 'enum',
+  closed: false,
+  numericOnly: true,
+  variants: Object.fromEntries(variants.map(v => [v, null]))
+})
+
+export const hasOptionalFields = (s: StructSchema): boolean => (
+  // Could be more efficient, but eh.
+  s.encodingOrder.findIndex(f => s.fields[f].optional) > -1
 )
-
-export const structEq = (a: StructPureSchema, b: StructPureSchema): boolean => {
-  for (const k of mergedKeys(a.fields, b.fields)) {
-    let af = a.fields[k]
-    let bf = b.fields[k]
-    if (af == null || bf == null) return false
-
-    if (!typesShallowEq(af.type, bf.type)) return false
-  }
-
-  // console.log('struct eq')
-
-  return true
-}
-
-type Oracle = Record<string, StructPureSchema>
-export const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean => {
-  if (a === b) return true
-  if (typeof a === 'string' || typeof b === 'string') return false
-  if (a.type !== b.type) return false
-
-  switch (a.type) {
-    case 'ref':
-      if (a.key !== (b as Ref).key) return false
-      return structEq(aOracle[a.key], bOracle[a.key])
-    case 'list':
-      return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
-    case 'map':
-      const bb = b as MapType
-      return a.keyType === bb.keyType && typesEq(a.valType, bb.valType, aOracle, bOracle)
-    // Other cases (when added) will generate a type error.
-  }
-}
-
-
-
 
 // ***** Testing code ******
 
 const testMergeSchema = () => {
-  const a: PureSchema = {
+  const remote: Schema = extendSchema({
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -325,29 +280,31 @@ const testMergeSchema = () => {
           name: {type: 'string'},
           address: {type: 'string'},
         }
-      }
+      },
+      Color: enumOfStrings('Red', 'Green'),
     }
-  }
+  })
 
-  const b: PureSchema = {
+  const local: Schema = extendSchema({
     id: 'Example',
     root: ref('Contact'),
     types: {
       Contact: {
         type: 'struct',
         fields: {
-          name: {type: 'string'},
+          name: {type: 'string', defaultValue: 'Bruce'},
           phoneNo: {type: 'string'},
         }
-      }
+      },
+      Color: enumOfStrings('Green', 'Blue'),
     }
-  }
+  })
 
-  console.log(mergeSchemas(a, b))
+  console.log(mergeSchemas(remote, local))
 }
 
 const testSimpleSchemaInference = () => {
-  const schema: PureSchema = {
+  const schema = <SimpleSchema>{
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -361,8 +318,9 @@ const testSimpleSchemaInference = () => {
 
       Shape: {
         type: 'enum',
+        numericOnly: false,
         variants: {
-          Line: {},
+          Line: null,
           Square: {
             associatedData: {
               type: 'struct',
@@ -370,7 +328,9 @@ const testSimpleSchemaInference = () => {
             }
           }
         }
-      }
+      },
+
+      Color: enumOfStrings('Green', 'Red', 'Purple')
     }
   }
 
@@ -378,7 +338,7 @@ const testSimpleSchemaInference = () => {
   // console.log('js', simpleJsMap(schema))
 
 
-  console.log(simpleFullSchema(schema))
+  console.log(extendSchema(schema))
 }
 
 // testMergeSchema()

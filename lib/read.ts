@@ -1,9 +1,9 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType } from "./schema_merge.js"
+import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType } from "./schema.js"
 import {Console} from 'node:console'
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { ref, mergeSchemas, hasOptionalFields } from "./utils_merge.js"
+import { ref, mergeSchemas, hasOptionalFields } from "./utils.js"
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
