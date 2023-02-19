@@ -1,9 +1,9 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructSchema, SType } from "./schema.js"
+import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType } from "./schema_merge.js"
 import {Console} from 'node:console'
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { combine, mergeSchemas } from "./utils.js"
+import { ref, mergeSchemas, hasOptionalFields } from "./utils_merge.js"
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
@@ -46,16 +46,17 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   // We still need to parse the struct, even if its not locally known to advance the read position.
   const result: Record<string, any> | null = !struct.mappedToJS ? null : {}
 
-  // This is an inefficient way to do this, but it'll work fine.
   const missingFields = new Set<string>()
-  if (struct.optionalOrder.length > 0) {
+  if (hasOptionalFields(struct)) {
     let optionalBits = readVarInt(r)
     // console.log('optional bits', optionalBits)
-    for (const f of struct.optionalOrder) {
-      const [fieldMissing, next] = trimBit(optionalBits)
-      optionalBits = next
+    for (const f of struct.encodingOrder) {
+      if (struct.fields[f].optional) {
+        const [fieldMissing, next] = trimBit(optionalBits)
+        optionalBits = next
 
-      if (fieldMissing) missingFields.add(f)
+        if (fieldMissing) missingFields.add(f)
+      }
     }
   }
 
@@ -63,7 +64,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => struct.fields[k].mappedToJS))
 
   // console.log('missing fields', missingFields)
-  for (const f of struct.fieldOrder) {
+  for (const f of struct.encodingOrder) {
     // We always read all the fields, since we need to update the read position regardless of if we use the output.
     const type = struct.fields[f]
     if (type == null) throw Error('Missing field in schema')
@@ -75,7 +76,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
     if (type.mappedToJS) {
       result![type.renameFieldTo ?? f] = thing
     } else {
-      console.warn('Unknown field', f, 'in struct')
+      console.warn(`Warning: unknown field '${f}' in struct`)
       result!._external ??= {}
       result!._external[f] = thing
     }
@@ -95,23 +96,25 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
   // const [hasFields, variantNum] = trimBit(readVarInt(r))
   const variantNum = readVarInt(r)
+  if (variantNum >= e.encodingOrder.length) throw Error('Could not look up variant ' + variantNum)
 
-  const variantName = e.variantOrder[variantNum]
+  const variantName = e.encodingOrder[variantNum]
   // console.log('VV', variantNum, variantName)
-  if (variantName == null) throw Error('Could not look up variant ' + variantNum)
 
   const variant = e.variants[variantName]
   // console.log('READ variant', variant, schema)
   // Only decode the struct if the encoding names fields.
 
-  const associatedData = variant.associatedData != null && variant.associatedData.fieldOrder.length > 0
+  const associatedData = variant.associatedData != null && variant.associatedData.encodingOrder.length > 0
     ? readStruct(r, schema, variant.associatedData)
     : null
+
+  if (e.numericOnly && associatedData != null) throw Error('Cannot decode associated data with numeric enum')
 
   if (!variant.mappedToJS) {
     // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
     return {type: '_unknown', data: {type: variantName, ...associatedData}}
-  } else if (associatedData != null) {
+  } else if (!e.numericOnly || associatedData != null) {
     return {type: variantName, ...associatedData}
   } else {
     // TODO: Make this configurable! Apps should never be surprised by this.
@@ -214,12 +217,11 @@ const testRead = () => {
       Contact: {
         type: 'struct',
         mappedToJS: true,
-        fieldOrder: ['age', 'name'],
-        optionalOrder: [],
+        encodingOrder: ['age', 'name'],
 
         fields: {
-          name: {type: 'string', mappedToJS: true},
-          age: {type: 'uint', mappedToJS: true}
+          name: {type: 'string', mappedToJS: true, optional: false},
+          age: {type: 'uint', mappedToJS: true, optional: false}
           // address: {type: 'string'},
         }
       }
@@ -232,56 +234,35 @@ const testRead = () => {
 }
 
 const testRead2 = () => {
-  const fileSchema: PureSchema = {
+  const fileSchema: Schema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
       Contact: {
         type: 'struct',
+        encodingOrder: ['age', 'name'],
+        mappedToJS: false,
         fields: {
-          name: {type: 'string'},
-          age: {type: 'uint'}
+          name: {type: 'string', mappedToJS: false, optional: false},
+          age: {type: 'uint', mappedToJS: false, optional: false}
           // address: {type: 'string'},
         }
       }
     }
   }
 
-  const appSchema: PureSchema = {
+  const appSchema: Schema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
       Contact: {
         type: 'struct',
-        fields: {
-          // name: {type: 'string'},
-          age: {type: 'uint'},
-          address: {type: 'string'},
-        }
-      }
-    }
-  }
-
-  const encoding: SchemaEncoding = {
-    id: 'Example',
-    types: {
-      Contact: {
-        type: 'struct',
-        fieldOrder: ['age', 'name'],
-        optionalOrder: []
-      }
-    }
-  }
-
-  const toJs: SchemaToJS = {
-    id: 'Example',
-    types: {
-      Contact: {
-        type: 'struct',
+        encodingOrder: [],
         mappedToJS: true,
         fields: {
-          age: { mappedToJS: true, renameFieldTo: 'yearsOld' },
-          address: { mappedToJS: true, defaultValue: 'unknown location' },
+          // name: {type: 'string'},
+          age: {type: 'uint', mappedToJS: true, optional: true, renameFieldTo: 'yearsOld'},
+          address: {type: 'string', mappedToJS: true, optional: true, defaultValue: 'unknown location'},
         }
       }
     }
@@ -289,9 +270,9 @@ const testRead2 = () => {
 
   const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
 
-  const mergedSchema = mergeSchemas(appSchema, fileSchema)
-  const fullSchema = combine(mergedSchema, encoding, toJs)
-  console.log(readData(fullSchema, b))
+  const mergedSchema = mergeSchemas(fileSchema, appSchema)
+  // const fullSchema = combine(mergedSchema, encoding, toJs)
+  console.log(readData(mergedSchema, b))
 }
 
 // testRead()

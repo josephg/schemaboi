@@ -1,6 +1,6 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { EnumObject, EnumSchema, Primitive, PureSchema, ref, Schema, SchemaEncoding, SchemaToJS, StructPureSchema, StructSchema, SType } from "./schema.js"
-import { combine, simpleFullSchema } from "./utils.js"
+import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema_merge.js"
+import { extendSchema, hasOptionalFields, ref } from "./utils_merge.js"
 
 import assert from 'assert/strict'
 import {Console} from 'node:console'
@@ -115,15 +115,16 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
 function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, struct: StructSchema) {
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
-  if (struct.optionalOrder.length) {
-    if (struct.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
+  if (hasOptionalFields(struct)) {
+    // if (struct.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
     let optionalBits = 0
 
     // If any fields are optional, all the data is prefixed by a set of optional bits describing which fields exist.
     //
     // The bits are packed from least to most significant, in order of the the optionalBits fields.
-    for (let i = struct.optionalOrder.length - 1; i >= 0; --i) {
-      const k = struct.optionalOrder[i]
+    for (let i = struct.encodingOrder.length - 1; i >= 0; --i) {
+      const k = struct.encodingOrder[i]
+      if (!struct.fields[k].optional) continue
 
       const fieldName = struct.fields[k].renameFieldTo ?? k
       const fieldMissing = val[fieldName] == null
@@ -134,20 +135,19 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: Record<string, any>, 
     writeVarInt(w, optionalBits)
   }
 
-  const optionalFields = new Set(struct.optionalOrder)
+  // const optionalFields = new Set(struct.optionalOrder)
 
-  for (const k of struct.fieldOrder) {
-    const fieldName = struct.fields[k].renameFieldTo ?? k
+  for (const k of struct.encodingOrder) {
+    const field = struct.fields[k]
+    const fieldName = field.renameFieldTo ?? k
     let v = val[fieldName]
     if (v == null) {
-      // NOTE: I could fill in the default value in this case. Not sure if that would be the right call.
-      if (!optionalFields.has(k)) throw Error('null or missing field required by encoding')
-      continue // Skipped as per optionalOrder above.
+      if (field.optional) continue // We've already encoded that the field is missing, above.
+      else if (field.defaultValue != null) v = field.defaultValue
+      else throw Error('null or missing field required by encoding')
     }
 
-    const type = struct.fields[k].type
-
-    encodeThing(w, schema, v, type)
+    encodeThing(w, schema, v, field.type)
   }
 }
 
@@ -173,7 +173,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   // console.log('WRITE variant', variantName, variant)
   if (variant == null) throw Error('Unrecognised enum variant: ' + variantName)
 
-  const variantNum = e.variantOrder.indexOf(variantName)
+  const variantNum = e.encodingOrder.indexOf(variantName)
   if (variantNum < 0) throw Error(`No encoding for ${variantName}`)
 
   // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
@@ -228,10 +228,6 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
   }
 }
 
-const isRef = (x: SType): x is {type: 'ref', key: string} => (
-  typeof x !== 'string' && x.type === 'ref'
-)
-
 export function toBinary(schema: Schema, data: any): Uint8Array {
   const writer: WriteBuffer = {
     buffer: new Uint8Array(32),
@@ -246,47 +242,23 @@ export function toBinary(schema: Schema, data: any): Uint8Array {
 
 
 const simpleTest = () => {
-  const pureSchema: PureSchema = {
+  const schema: Schema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
       Contact: {
         type: 'struct',
+        mappedToJS: true,
+        encodingOrder: ['age', 'name'],
         fields: {
-          name: {type: 'string'},
-          age: {type: 'uint'}
+          name: {type: 'string', mappedToJS: true, optional: true},
+          age: {type: 'uint', mappedToJS: true, optional: false}
           // address: {type: 'string'},
         }
       }
     }
   }
 
-  const encoding: SchemaEncoding = {
-    id: 'Example',
-    types: {
-      Contact: {
-        type: 'struct',
-        fieldOrder: ['age', 'name'],
-        optionalOrder: ['name']
-      }
-    }
-  }
-
-  const toJs: SchemaToJS = {
-    id: 'Example',
-    types: {
-      Contact: {
-        type: 'struct',
-        mappedToJS: true,
-        fields: {
-          name: {mappedToJS: true},
-          age: {mappedToJS: true}
-        }
-      }
-    }
-  }
-
-  const schema = combine(pureSchema, encoding, toJs)
   const data = {name: 'seph', age: 21}
 
   console.log(toBinary(schema, data))
@@ -295,7 +267,7 @@ const simpleTest = () => {
 
 
 const kitchenSinkTest = () => {
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -314,6 +286,7 @@ const kitchenSinkTest = () => {
 
       Color: {
         type: 'enum',
+        numericOnly: false,
         variants: {
           Blue: {},
           Red: {},
@@ -341,7 +314,7 @@ const kitchenSinkTest = () => {
     worstColor: {type: 'RGB', r: 10, g: 50, b: 100},
   }
 
-  console.log(toBinary(simpleFullSchema(schema), data))
+  console.log(toBinary(extendSchema(schema), data))
 }
 
 // simpleTest()

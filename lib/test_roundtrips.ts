@@ -1,7 +1,7 @@
 import { readData } from "./read.js";
-import {PureSchema, ref, Schema} from "./schema.js";
+import {SimpleSchema, Schema, EnumSchema} from "./schema_merge.js";
 import { toBinary } from "./write.js";
-import { simpleFullSchema } from "./utils.js";
+import { enumOfStrings, extendSchema, ref } from "./utils_merge.js";
 
 import * as assert from 'assert/strict'
 import {Console} from 'node:console'
@@ -19,13 +19,13 @@ const testRoundTripFullSchema = (schema: Schema, input: any) => {
   assert.deepEqual(result, input)
 }
 
-const testRoundTrip = (schema: PureSchema, input: any) => {
-  const fullSchema = simpleFullSchema(schema)
+const testRoundTrip = (schema: SimpleSchema, input: any) => {
+  const fullSchema = extendSchema(schema)
   testRoundTripFullSchema(fullSchema, input)
 }
 
 {
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: {type: 'list', fieldType: 'f64'},
     types: {}
@@ -35,7 +35,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: 'string',
     types: {}
@@ -45,7 +45,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: {type: 'map', keyType: 'string', valType: 'f64'},
     types: {}
@@ -55,7 +55,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
@@ -72,13 +72,28 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 }
 
 {
+  // Numeric Enum
+  const schema: SimpleSchema = {
+    id: 'Example',
+    root: ref('Color'),
+    types: {
+      Color: enumOfStrings('Red', 'Blue', 'Green'),
+    }
+  }
+
+  testRoundTrip(schema, 'Red')
+  testRoundTrip(schema, 'Blue')
+}
+
+{
   // Enum
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: ref('Color'),
     types: {
       Color: {
         type: 'enum',
+        numericOnly: false,
         variants: {
           Blue: {},
           Red: {},
@@ -98,8 +113,8 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
   }
 
   // console.log(simpleFullSchema(schema))
-  testRoundTrip(schema, 'Red')
-  testRoundTrip(schema, 'Blue')
+  testRoundTrip(schema, {type: 'Red'})
+  testRoundTrip(schema, {type: 'Blue'})
   // testRoundTrip(schema, {type: 'Blue'})
   testRoundTrip(schema, {type: 'RGB', r: null, g: null, b: null}) // TODO: Make a non-nullable variant.
   testRoundTrip(schema, {type: 'RGB', r: 123, g: 2, b: 1})
@@ -107,12 +122,13 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 
 {
   // Test unknown enum variants
-  const pureSchema: PureSchema = {
+  const SimpleSchema: SimpleSchema = {
     id: 'Example',
     root: ref('Color'),
     types: {
       Color: {
         type: 'enum',
+        numericOnly: false,
         variants: {
           Blue: {},
           Red: {},
@@ -131,9 +147,9 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
     }
   }
 
-  let schema = simpleFullSchema(pureSchema)
-  schema.types['Color'].variants['Red'].mappedToJS = false
-  schema.types['Color'].variants['RGB'].mappedToJS = false
+  let schema = extendSchema(SimpleSchema)
+  ;(schema.types['Color'] as EnumSchema).variants['Red'].mappedToJS = false
+  ;(schema.types['Color'] as EnumSchema).variants['RGB'].mappedToJS = false
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
   testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'RGB', r: 123, g: 2, b: 1}})
@@ -141,7 +157,7 @@ const testRoundTrip = (schema: PureSchema, input: any) => {
 
 {
   // Test nullable struct fields
-  const schema: PureSchema = {
+  const schema: SimpleSchema = {
     id: 'Example',
     root: ref('Contact'),
     types: {
