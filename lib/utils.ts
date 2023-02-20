@@ -173,6 +173,7 @@ function extendEnum(s: SimpleEnumSchema): EnumSchema {
     type: 'enum',
     closed: s.closed ?? false,
     numericOnly: s.numericOnly,
+    typeFieldOnParent: s.typeFieldOnParent,
     variants: objMap(s.variants, v => ({
       associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
     })),

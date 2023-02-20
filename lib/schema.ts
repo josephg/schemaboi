@@ -2,7 +2,6 @@
 /*
 
 - Packed bit fields
-- Ignored fields (toJS)
 - Mapping & read / write visitors
 - Metaschema 2.0
 
@@ -59,6 +58,7 @@ export interface EnumSchema {
 
   closed: boolean,
   numericOnly: boolean,
+  typeFieldOnParent?: string,
 
   variants: Record<string, {
     // renameFieldTo?: string,
@@ -107,6 +107,7 @@ export interface SimpleEnumSchema {
 
   closed?: boolean,
   numericOnly: boolean,
+  typeFieldOnParent?: string,
 
   variants: Record<string, {
     // renameFieldTo?: string,
@@ -116,5 +117,5 @@ export interface SimpleEnumSchema {
 
 
 export type EnumObject = string
-  | {type: string, [k: string]: any}
+  | {type?: string, [k: string]: any}
   | {type: '_unknown', data: {type: string, [k: string]: any}}

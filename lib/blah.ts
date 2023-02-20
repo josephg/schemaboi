@@ -790,4 +790,4 @@ const tldrawTest = () => {
 
 }
 
-// tldrawTest()
+tldrawTest()

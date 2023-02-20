@@ -107,7 +107,41 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
       break
     }
 
-    default: throw Error('nyi type: ' + type)
+    case 'binary': {
+      let valBuffer = val as Uint8Array
+
+      ensureCapacity(w, 9 + valBuffer.byteLength)
+      w.pos += varintEncodeInto(valBuffer.byteLength, w.buffer, w.pos)
+      w.buffer.set(valBuffer, w.pos)
+      w.pos += valBuffer.byteLength
+      break
+    }
+
+    case 'id': {
+      // IDs are encoded as either a string or a number, depending on whether we've seen this ID before.
+      const existingId = w.ids.get(val)
+      if (existingId == null) {
+        // Encode it as a string, but with an extra 0 bit mixed into the length.
+        // This code is lifted from writeString(). It'd be nice to share this code, but .. that'd be gross too.
+        const strBytes = encoder.encode(val)
+        ensureCapacity(w, 9 + strBytes.length)
+        let n = mixBit(strBytes.length, false)
+        w.pos += varintEncodeInto(n, w.buffer, w.pos)
+        w.buffer.set(strBytes, w.pos)
+        w.pos += strBytes.length
+
+        let id = w.ids.size
+        w.ids.set(val, id)
+      } else {
+        let n = mixBit(existingId, true)
+        writeVarInt(w, n)
+      }
+      break
+    }
+
+    default:
+      let exhaustiveCheck: never = type
+      throw Error('nyi type: ' + type)
   }
 }
 
@@ -151,7 +185,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
       else throw Error(`null or missing field '${fieldName}' required by encoding`)
     }
 
-    encodeThing(w, schema, v, field.type)
+    encodeThing(w, schema, v, field.type, val)
   }
 }
 
@@ -164,8 +198,12 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
 // }
 
 // For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
-function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema) {
+function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema, parent?: any) {
+  // We won't bother encoding any field with only 0 or 1 variants. They're 0 sized.
+  if (e.encodingOrder.length <= 1) return
+
   const variantName = typeof val === 'string' ? val
+    : e.typeFieldOnParent != null ? parent[e.typeFieldOnParent]
     : val.type === '_unknown' ? val.data.type
     : val.type
 
@@ -188,7 +226,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   }
 }
 
-function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
+function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, parent?: any) {
   if (typeof type === 'object') { // Animal, mineral or vegetable...
     switch (type.type) {
       case 'ref': {
@@ -199,7 +237,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType) {
             encodeStruct(w, schema, val, innerType)
             break
           case 'enum':
-            encodeEnum(w, schema, val, innerType)
+            encodeEnum(w, schema, val, innerType, parent)
             break
           default:
             const exhaustiveCheck: never = innerType

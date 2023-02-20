@@ -71,7 +71,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 
     const thing = missingFields.has(f)
       ? (type.defaultValue ?? null) // The field is optional and missing from the result.
-      : readThing(r, schema, type.type)
+      : readThing(r, schema, type.type, result!)
 
     if (type.foreign) {
       console.warn(`Warning: foreign field '${f}' in struct`)
@@ -93,7 +93,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   return struct.decode ? struct.decode(result!) : result
 }
 
-function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
+function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumObject {
   // const [hasFields, variantNum] = trimBit(readVarInt(r))
   const variantNum = readVarInt(r)
   if (variantNum >= e.encodingOrder.length) throw Error('Could not look up variant ' + variantNum)
@@ -114,6 +114,10 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema): EnumObject {
   if (variant.foreign) {
     // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
     return {type: '_unknown', data: {type: variantName, ...associatedData}}
+  } else if (e.typeFieldOnParent != null) {
+    if (parent == null) throw Error('Cannot write type field on null parent')
+    parent[e.typeFieldOnParent] = variantName
+    return associatedData!
   } else if (!e.numericOnly || associatedData != null) {
     return {type: variantName, ...associatedData}
   } else {
@@ -157,7 +161,7 @@ function readPrimitive(r: Reader, type: Primitive): any {
   }
 }
 
-function readThing(r: Reader, schema: Schema, type: SType): any {
+function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
   if (typeof type === 'string') {
     return readPrimitive(r, type)
   } else {
@@ -165,7 +169,7 @@ function readThing(r: Reader, schema: Schema, type: SType): any {
       case 'ref': {
         const inner = schema.types[type.key]
         if (inner.type === 'struct') return readStruct(r, schema, inner)
-        else if (inner.type === 'enum') return readEnum(r, schema, inner)
+        else if (inner.type === 'enum') return readEnum(r, schema, inner, parent)
         else { const exhaustiveCheck: never = inner }
         break
       }
