@@ -185,15 +185,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       case 'map': {
         if (type.keyType !== 'string') throw Error('Cannot read map with non-string keys in javascript')
         const length = readVarInt(r)
-        if (type.asEntryList) {
-          const entries = []
-          for (let i = 0; i < length; i++) {
-            const k = readPrimitive(r, type.keyType)
-            const v = readThing(r, schema, type.valType)
-            entries.push([k, v])
-          }
-          return entries
-        } else {
+        if (type.decodeForm == null || type.decodeForm == 'object') {
           const result: Record<string, any> = {}
           for (let i = 0; i < length; i++) {
             const k = readPrimitive(r, type.keyType)
@@ -201,6 +193,16 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
             result[k] = v
           }
           return result
+        } else {
+          const entries: [number | string | boolean, any][] = []
+          for (let i = 0; i < length; i++) {
+            const k = readPrimitive(r, type.keyType)
+            const v = readThing(r, schema, type.valType)
+            entries.push([k, v])
+          }
+          return type.decodeForm == 'entryList'
+            ? entries
+            : new Map(entries)
         }
       }
       default:

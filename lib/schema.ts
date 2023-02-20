@@ -15,7 +15,8 @@ export interface MapType { // MapType rather than Map because Map is the name of
   type: 'map',
   keyType: Primitive
   valType: SType,
-  asEntryList?: true,
+  // asEntryList?: true,
+  decodeForm?: 'object' | 'map' | 'entryList'
 }
 export type SType = Primitive | Ref | List | MapType
 
