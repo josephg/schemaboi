@@ -257,7 +257,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       case 'map': {
         // Maps can also be provided as a list of [k,v] entries.
         const entries = Array.isArray(val) ? val
-          : val instanceof Map ? Array.from(val.entries())
+          : val instanceof Map ? Array.from(val.entries()) // TODO: Remove this allocation.
           : Object.entries(val)
         writeVarInt(w, entries.length)
         for (const [k, v] of entries) {

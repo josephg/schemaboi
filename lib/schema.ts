@@ -3,6 +3,7 @@
 
 - Packed bit fields
 - Mapping & read / write visitors
+- Promoting fields to lists?
 - Metaschema 2.0
 
 */
