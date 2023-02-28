@@ -1,6 +1,6 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
-import { extendSchema, hasOptionalFields, ref } from "./utils.js"
+import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructField, StructSchema, SType } from "./schema.js"
+import { any, countIter, countMatching, extendSchema, filterIter, firstIndexOf, hasAssociatedData, hasOptionalFields, mapIter, ref } from "./utils.js"
 
 import assert from 'assert/strict'
 import {Console} from 'node:console'
@@ -145,48 +145,155 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
   }
 }
 
-//  = simpleSchemaEncoding(schema)
+const tryGetEnum = (t: SType, schema: Schema): EnumSchema | null => {
+  if (typeof t !== 'object' || t.type !== 'ref') return null
+  const inner = schema.types[t.key]
+  return inner.type === 'enum' ? inner : null
+}
+
+const enumUsedStates = (e: EnumSchema): number => (
+  // Probably better done in 1 pass.
+  countMatching(e.variants.values(), v => !v.unused)
+)
+
+/**
+ * There's a few ways we can encode data, and we need to decide at this point how we'll do it.
+ *
+ * Essentially we have up to 2 pieces of data for each field:
+ *
+ * - Is the field *present*?
+ * - Whats the field's value?
+ *
+ * For efficiency, structs are encoded in two parts: A bit block, and a value block. The bit block
+ * stores packed bits for small fields and optional encoding information. Basically, everything that needs
+ * 2 bits or less to store. The value block stores everything else.
+ *
+ * We need to decide how this data will be stored. We can count the number of different states at play. If there is:
+ *
+ * - 1 state, we don't need to store anything to know the state of the field. Eg, if a numeric enum only has 1 variant.
+ * - 2 states, we'll use a single bit. Eg, an optional enum with 1 variant, or a required boolean
+ * - up to 4 states: We can use 2 bits in the bit block
+ * - More states than that, store the field in the value block.
+ *
+ * This method essentially returns 3 bits:
+ *
+ * - Are we storing whether this field is optional?
+ * - Are we storing the field's value in the bit block?
+ * - Are we storing the field's value in the value block?
+ *
+ * Note for enums, we always store associated data in the value block regardless
+ *
+ * 0b000: 1 state, nothing needs to be stored.
+ * 0b001: Required field, stored in the value block. Eg required string
+ * 0b010: Required field with 2 states, stored in optional block (eg bool)
+ * 0b011: Enum with 2 states
+ * 0b100: Optional field, but if present it only has 1 valid state anyway.
+ * 0b101: Optional field with multi-bit data. Eg, optional string
+ * 0b110: Optional field stored in bit block. Eg, optional enum with 2 states.
+ * 0b111: Optional enum with 2 states
+ */
+// const encodingStrategy = (f: StructField, schema: Schema): number => {
+//   if (f.encoding === 'unused') return 0b000
+
+//   if (f.type === 'bool') return f.encoding === 'required' ? 0b010 : 0b110
+
+//   const e = tryGetEnum(f.type, schema)
+//   if (e) {
+//     // const hasData = !e.numericOnly && any(e.variants.values(), v => hasAssociatedData(v.associatedData))
+//     const states = filterIter(e.variants.values(), v => !v.unused)
+//   }
+
+//   return f.encoding === 'required' ? 0b001 : 0b101
+// }
+
+
+// const enum Foo {
+//   StoreOptional = 4,
+//   StoreValueInBits = 2,
+//   StoreValueInValueBlock = 1,
+// }
+
+/**
+ * Each struct is stored in 2 blocks of data:
+ *
+ * - Bits: All fields which only have 2 states. Eg, booleans, enums with 2 variants. Also, all optional flags.
+ * - Bytes: All fields which don't fit in a bit.
+ *
+ * All the bits are packed together at the start of the struct definition.
+ *
+ * When we encode, we do it in 2 passes:
+ *
+ * 1. Scan the struct and encode all bit fields.
+ * 2. Scan the struct and encode everything else.
+ *
+ * Note some fields may not need *any* bits to store them (eg enums with only 1 variant).
+ */
 function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSchema) {
   if (struct.encode) val = struct.encode(val)
-  
+
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
-  if (hasOptionalFields(struct)) {
-    // if (struct.optionalOrder.length > 53) throw Error('Cannot encode more than 52 optional fields. File an issue if this causes problems')
-    let optionalBits = 0
+  // let encodingBits = true
 
-    // If any fields are optional, all the data is prefixed by a set of optional bits describing which fields exist.
-    //
-    // The bits are packed from least to most significant, in order of the the optionalBits fields.
-    for (let i = struct.encodingOrder.length - 1; i >= 0; --i) {
-      const k = struct.encodingOrder[i]
-      const field = struct.fields[k]
-      if (field == null) throw Error(`encodingOrder mentions field '${k}' that is missing from the schema`)
+  // Bits are stored in LSB0.
+  let bitPattern = 0 // only 8 bits are used, then we flush.
+  let nextBit = 0
 
-      if (!field.optional) continue
+  const flushBits = () => {
+    if (nextBit > 0) { // Flush if there are any bits set.
+      // console.log('flushing bits', bitPattern, 'bits:', nextBit)
+      ensureCapacity(w, 1)
+      w.buffer[w.pos] = bitPattern
+      w.pos += 1
+      bitPattern = 0
+      nextBit = 0
+    }
+  }
+
+  const writeBit = (b: boolean) => {
+    // console.log('writeBit', b)
+    if (nextBit >= 8) flushBits()
+    bitPattern |= (b ? 1 : 0) << nextBit
+    nextBit++
+  }
+
+  // First write the bit block.
+  const writePass = (writeBit: ((b: boolean) => void) | null, writeThing: ((v: any, type: SType) => void) | null) => {
+    for (const [k, field] of struct.fields.entries()) {
+      if (field.encoding === 'unused') continue
+
       const fieldName = field.renameFieldTo ?? k
-      const fieldMissing = val[fieldName] == null
-      // console.log(i, 'k', k, fieldMissing)
-      optionalBits = mixBit(optionalBits, fieldMissing)
-    }
+      let v = val[fieldName]
 
-    writeVarInt(w, optionalBits)
+      // console.log('field', k, 'inline', field.inline, 'encoding', field.encoding, 'hasValue', v != null, 'value', v)
+      if (field.encoding === 'optional') {
+        const hasValue = v != null
+        writeBit?.(hasValue)
+        if (!hasValue) continue
+      } else {
+        // If the field is missing, fill it in with the default value.
+        v ??= field.defaultValue
+        if (v == null) throw Error(`null or missing field '${fieldName}' required by encoding`)
+      }
+
+      // TODO: Also write bits for enums with 2 in-use fields!
+      if (field.inline) {
+        // console.log('write inlined', k)
+        if (field.type === 'bool') writeBit?.(v)
+        else throw Error('Inlining non-boolean fields not supported')
+      } else {
+        writeThing?.(v, field.type)
+      }
+    }
   }
 
-  // const optionalFields = new Set(struct.optionalOrder)
-
-  for (const k of struct.encodingOrder) {
-    const field = struct.fields[k]
-    const fieldName = field.renameFieldTo ?? k
-    let v = val[fieldName]
-    if (v == null) {
-      if (field.optional) continue // We've already encoded that the field is missing, above.
-      else if (field.defaultValue != null) v = field.defaultValue
-      else throw Error(`null or missing field '${fieldName}' required by encoding`)
-    }
-
-    encodeThing(w, schema, v, field.type, val)
-  }
+  writePass(writeBit, null)
+  // console.log('bits', bitPattern, bitsUsed)
+  flushBits()
+  // console.log(w.buffer, w.pos)
+  writePass(null, (v: any, type: SType) => {
+    encodeThing(w, schema, v, type, val)
+  })
 }
 
 // const enumIsEmpty = (obj: EnumObject): boolean => {
@@ -199,8 +306,16 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
 
 // For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
 function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema, parent?: any) {
-  // We won't bother encoding any field with only 0 or 1 variants. They're 0 sized.
-  if (e.encodingOrder.length <= 1) return
+  // const usedVariants = (e.usedVariants ??= enumUsedStates(e))
+  const usedVariants = [...
+    mapIter(
+      filterIter(e.variants.entries(), ([_k, v]) => !v.unused),
+      ([k]) => k)
+  ]
+
+  // We need to write 2 pieces of data:
+  // 1. Which variant we're encoding
+  // 2. Any associated data for this variant
 
   const variantName = typeof val === 'string' ? val
     : e.typeFieldOnParent != null ? parent[e.typeFieldOnParent]
@@ -211,15 +326,16 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
     : val.type === '_unknown' ? val.data
     : val
 
-  const variant = e.variants[variantName]
+  const variant = e.variants.get(variantName)
   // console.log('WRITE variant', variantName, variant)
-  if (variant == null) throw Error('Unrecognised enum variant: ' + variantName)
+  if (variant == null) throw Error(`Unrecognised enum variant: "${variantName}"`)
 
-  const variantNum = e.encodingOrder.indexOf(variantName)
-  if (variantNum < 0) throw Error(`No encoding for ${variantName}`)
+  if (usedVariants.length >= 2) {
+    const variantNum = usedVariants.indexOf(variantName)
+    if (variantNum < 0) throw Error(`No encoding for ${variantName}`)
+    writeVarInt(w, variantNum)
+  }
 
-  // writeVarInt(w, mixBit(variantNum, !enumIsEmpty(val)))
-  writeVarInt(w, variantNum)
   if (variant.associatedData) {
     // console.log('Encode associated data')
     encodeStruct(w, schema, associatedData, variant.associatedData)
@@ -295,12 +411,11 @@ const simpleTest = () => {
     types: {
       Contact: {
         type: 'struct',
-        encodingOrder: ['age', 'name'],
-        fields: {
-          name: {type: 'string', optional: true},
-          age: {type: 'uint', optional: false}
+        fields: new Map([
+          ['name', {type: 'string', encoding: 'optional'}],
+          ['age', {type: 'uint', encoding: 'required'}]
           // address: {type: 'string'},
-        }
+        ])
       }
     }
   }
@@ -360,6 +475,7 @@ const kitchenSinkTest = () => {
     worstColor: {type: 'RGB', r: 10, g: 50, b: 100},
   }
 
+  console.log('schema', extendSchema(schema))
   console.log(toBinary(extendSchema(schema), data))
 }
 

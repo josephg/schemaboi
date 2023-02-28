@@ -2,6 +2,11 @@
 /*
 
 - Packed bit fields
+- Encoding fields -> Map??
+- Numeric types -> u8/s8/etc + encoding
+
+
+
 - Mapping & read / write visitors
 - Promoting fields to lists?
 - Metaschema 2.0
@@ -26,26 +31,43 @@ export type SType = Primitive | Ref | List | MapType
 //   toEntries: (data: T) => [any, any][],
 // }
 
+// export type EncodingStrategy = 'field' | 'optional field' | 'bits'
+
+export interface StructField {
+  type: SType, // Schema type
+
+  /**
+   * A default value. This is a JS encoding field.
+   *
+   * - When reading, if the field is missing in the stored data, we'll read this value instead.
+   *   This essentially forces the field to be required even if its optional or missing in the data.
+   * - When writing a required field, the value in JS is allowed to be missing. In that case, we'll
+   *   write this value instead. We only do this if encoding is 'required'.
+   */
+  defaultValue?: any,
+
+  // optional: boolean,
+  foreign?: boolean,
+  renameFieldTo?: string,
+
+  // Is this field be inlined into the bit fields? This is currently only supported for booleans.
+  inline?: boolean,
+
+  encoding: 'unused' | 'optional' | 'required',
+  // used: boolean, // Or something. Encoding type: missing / optional / required ?
+
+  // encodeMap?: MapEncoding<any>
+}
+
 export interface StructSchema {
   type: 'struct',
 
   /** Is the struct locally known / referenced? */
   foreign?: boolean,
 
-  fields: Record<string, {
-    type: SType, // Schema type
+  fields: Map<string, StructField>,
 
-    /** If the field is missing in the data set, use this value instead of null when decoding. */
-    defaultValue?: any,
-
-    optional: boolean,
-    foreign?: boolean,
-    renameFieldTo?: string,
-
-    // encodeMap?: MapEncoding<any>
-  }>,
-
-  encodingOrder: string[],
+  // encodingOrder: string[],
 
   // These methods, if provided, will be called before reading and after writing to prepare the object
   // for encoding. If used, the schema should express the data *at rest*.
@@ -62,13 +84,33 @@ export interface EnumSchema {
   numericOnly: boolean,
   typeFieldOnParent?: string,
 
-  variants: Record<string, {
+  variants: Map<string, {
     // renameFieldTo?: string,
     associatedData?: StructSchema,
-    foreign?: boolean,
+    foreign?: boolean, // JS encoding
+
+    /*
+     * We need to know the variant number when encoding or decoding, when the variant is
+     * known by the storage system.
+     *
+     * There's a few ways to do that. The "obvious" way would be to add an integer variant number here.
+     *
+     * But there's two problems with that:
+     *
+     * 1. It would introduce a way for the data to be invalid, and making invalid states impossible
+     *    to represent is generally good design.
+     * 2. An integer would take up extra space over the wire. (We could translate back and forth when
+     *    encoding and decoding, but I'd rather not do that if I can avoid it).
+     *
+     * Using a bool here lets us rely on the order in the Map (which is fixed as per
+     * the JS spec). Its harder to work with though; which is unfortunately not ideal.
+     */
+    unused?: boolean, // This enum was not known by the remote peer and will not show up in the bitstream
   }>,
 
-  encodingOrder: string[],
+  // usedVariants?: string[], // TODO: Consider caching this.
+
+  // encodingOrder: string[],
 }
 
 export interface Schema {
@@ -91,17 +133,19 @@ export interface SimpleSchema {
   types: Record<string, SimpleStructSchema | SimpleEnumSchema>
 }
 
+export type SimpleField = {
+  type: SType, // Schema type
+
+  /** If the field is missing in the data set, use this value instead of null when decoding. */
+  defaultValue?: any,
+  optional?: boolean,
+  renameFieldTo?: string,
+}
+
 export interface SimpleStructSchema {
   type: 'struct',
 
-  fields: Record<string, {
-    type: SType, // Schema type
-
-    /** If the field is missing in the data set, use this value instead of null when decoding. */
-    defaultValue?: any,
-    optional?: boolean,
-    // renameFieldTo?: string,
-  }>,
+  fields: Record<string, SimpleField>,
 }
 
 export interface SimpleEnumSchema {

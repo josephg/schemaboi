@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -15,7 +15,7 @@ const console = new Console({
 
 const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T, b: T) => T): Record<string, T> => {
   const result: Record<string, T> = {}
-  for (const key of mergedKeys(a, b)) {
+  for (const key of mergedObjKeys(a, b)) {
     const aa = a[key]
     const bb = b[key]
 
@@ -30,7 +30,7 @@ const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a
 
 const mergeObjectsAll = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T | null, b: T | null) => T): Record<string, T> => {
   const result: Record<string, T> = {}
-  for (const key of mergedKeys(a, b)) {
+  for (const key of mergedObjKeys(a, b)) {
     const aa = a[key] ?? null
     const bb = b[key] ?? null
 
@@ -40,8 +40,25 @@ const mergeObjectsAll = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn:
   return result
 }
 
-export const mergedKeys = <T = any>(a: Record<string, T>, b: Record<string, T>): Iterable<string> => (
+const mergeMapsAll = <T>(a: Map<string, T>, b: Map<string, T>, mergeFn: (a: T | null, b: T | null) => T): Map<string, T> => {
+  const result = new Map<string, T>()
+  for (const key of mergedMapKeys(a, b)) {
+    const aa = a.get(key) ?? null
+    const bb = b.get(key) ?? null
+
+    result.set(key, mergeFn(aa, bb))
+  }
+
+  return result
+}
+
+export const mergedObjKeys = (a: Record<string, any>, b: Record<string, any>): Iterable<string> => (
   new Set([...Object.keys(a), ...Object.keys(b)])
+)
+
+export const mergedMapKeys = <K>(a: Map<K, any>, b: Map<K, any>): Iterable<K> => (
+  // TODO: Remove this list allocation.
+  new Set([...a.keys(), ...b.keys()])
 )
 
 const objMap = <A, B>(obj: Record<string, A>, mapFn: (a: A, key: string) => B): Record<string, B> => {
@@ -52,13 +69,27 @@ const objMap = <A, B>(obj: Record<string, A>, mapFn: (a: A, key: string) => B): 
   return result
 }
 
+const objMapToMap = <A, B>(obj: Record<string, A> | Map<string, A>, mapFn: (a: A, key: string) => B): Map<string, B> => {
+  const result: Map<string, B> = new Map()
+  if (obj instanceof Map) {
+    for (const [k, v] of obj.entries()) {
+      result.set(k, mapFn(v, k))
+    }
+  } else {
+    for (const k in obj) {
+      result.set(k, mapFn(obj[k], k))
+    }
+  }
+  return result
+}
+
 function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
   // console.log('merge', a, b)
   // Merge them.
   return {
     type: 'struct',
     foreign: local.foreign ?? false,
-    fields: mergeObjectsAll(remote.fields, local.fields, (remoteF, localF) => {
+    fields: mergeMapsAll(remote.fields, local.fields, (remoteF, localF): StructField => {
       // Check the fields are compatible.
       if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
         throw Error('Incompatible types in struct field')
@@ -68,11 +99,14 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
         type: localF?.type ?? remoteF!.type,
         foreign: localF ? (localF.foreign ?? false) : true,
         defaultValue: localF?.defaultValue,
-        optional: remoteF?.optional ?? true, // A field being optional is part of the encoding.
-        mappedToJS: localF?.foreign ?? true,
+        // optional: remoteF?.optional ?? true, // A field being optional is part of the encoding.
+        // mappedToJS: localF?.foreign ?? true,
+
+        // TODO: This makes sense for *reading* merged data, but it won't let us write.
+        encoding: remoteF?.encoding ?? 'unused',
       }
     }),
-    encodingOrder: remote.encodingOrder,
+    // encodingOrder: remote.encodingOrder,
   }
 }
 
@@ -91,25 +125,27 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     numericOnly: local.numericOnly,
     // I think this behaviour is correct...
     closed: remote.closed || local.closed,
-    variants: {},
-    encodingOrder: remote.encodingOrder,
+    variants: new Map,
+    // encodingOrder: remote.encodingOrder,
   }
 
-  for (const key of mergedKeys(remote.variants, local.variants)) {
-    const remoteV = remote.variants[key]
-    const localV = local.variants[key]
+  for (const key of mergedMapKeys(remote.variants, local.variants)) {
+    const remoteV = remote.variants.get(key)
+    const localV = local.variants.get(key)
 
     if (remoteV == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
     if (localV == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
 
-    result.variants[key] = remoteV == null ? { foreign: false, ...localV}
+    result.variants.set(key, remoteV == null ? { foreign: false, ...localV, unused: true }
       : localV == null ? { ...remoteV, foreign: true } // TODO: Recursively set foreign flag in associated data.
       : {
           foreign: localV.foreign ?? false,
+          unused: remoteV.unused ?? false,
           associatedData: remoteV.associatedData == null ? localV.associatedData
             : localV.associatedData == null ? remoteV.associatedData
             : mergeStructs(remoteV.associatedData, localV.associatedData)
         }
+    )
   }
 
   return result
@@ -159,12 +195,15 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
 function extendStruct(s: SimpleStructSchema): StructSchema {
   return {
     type: 'struct',
-    fields: objMap(s.fields, f => ({
+    fields: objMapToMap(s.fields, f => ({
       type: f.type,
       defaultValue: f.defaultValue,
-      optional: f.optional ?? true,
+      // optional: f.optional ?? true,
+      encoding: f.optional ? 'optional' : 'required',
+      inline: f.type === 'bool' ? true : false, // Inline booleans.
+      renameFieldTo: f.renameFieldTo,
     })),
-    encodingOrder: Object.keys(s.fields),
+    // encodingOrder: Object.keys(s.fields),
   }
 }
 
@@ -174,10 +213,11 @@ function extendEnum(s: SimpleEnumSchema): EnumSchema {
     closed: s.closed ?? false,
     numericOnly: s.numericOnly,
     typeFieldOnParent: s.typeFieldOnParent,
-    variants: objMap(s.variants, v => ({
+    variants: objMapToMap(s.variants, v => ({
       associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
+      unused: false,
     })),
-    encodingOrder: Object.keys(s.variants)
+    // encodingOrder: Object.keys(s.variants)
   }
 }
 
@@ -189,11 +229,6 @@ export function extendSchema(schema: SimpleSchema): Schema {
       s.type === 'enum' ? extendEnum(s) : extendStruct(s)
     ))
   }
-
-  // return combine(schema,
-  //   simpleSchemaEncoding(schema),
-  //   simpleJsMap(schema)
-  // )
 }
 
 
@@ -266,14 +301,61 @@ export const enumOfStrings = (...variants: string[]): EnumSchema => ({
   type: 'enum',
   closed: false,
   numericOnly: true,
-  variants: Object.fromEntries(variants.map(v => [v, {}])),
-  encodingOrder: variants,
+  variants: new Map(variants.map(v => [v, {}])),
+  // encodingOrder: variants,
 })
+
+export function *filterIter<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): IterableIterator<V> {
+  for (const v of iter) {
+    if (pred(v)) yield v
+  }
+}
+
+export function *mapIter<A, B>(iter: IterableIterator<A>, mapFn: (v: A) => B): IterableIterator<B> {
+  for (const a of iter) {
+    yield mapFn(a)
+  }
+}
+
+export function countIter<V>(iter: IterableIterator<V>): number {
+  let count = 0
+  for (const _v of iter) count += 1
+  return count
+}
+export function countMatching<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
+  let count = 0
+  for (const v of iter) if (pred(v)) count += 1
+  return count
+}
+
+export function any<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): boolean {
+  for (const v of iter) {
+    if (pred(v)) return true
+  }
+  return false
+}
+
+export function firstIndexOf<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
+  let i = 0;
+  for (const v of iter) {
+    if (pred(v)) return i
+    ++i
+  }
+  return -1
+}
 
 export const hasOptionalFields = (s: StructSchema): boolean => (
   // Could be more efficient, but eh.
-  s.encodingOrder.findIndex(f => s.fields[f].optional) > -1
+  any(s.fields.values(), v => v.encoding === 'optional')
 )
+
+export const hasAssociatedData = (s: StructSchema | null | undefined): boolean => (
+  s == null
+    ? false
+    : any(s.fields.values(), f => f.encoding !== "unused")
+)
+
+
 
 // ***** Testing code ******
 

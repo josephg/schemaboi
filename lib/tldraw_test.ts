@@ -25,14 +25,14 @@ const tldrawTest = () => {
         }
       },
 
-      ShapeType: enumOfStrings('shape'),
-      Color: enumOfStrings('light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'),
-      Size: enumOfStrings('l', 'xl'),
-      Alignment: enumOfStrings('middle', 'start', 'end'),
-      GeoType: enumOfStrings('ellipse', 'rectangle'),
-      Fill: enumOfStrings('pattern', 'none'),
-      Dash: enumOfStrings('draw'),
-      ArrowHead: enumOfStrings('arrow', 'none'),
+      ShapeType: enumOfStringsSimple('shape'),
+      Color: enumOfStringsSimple('light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'),
+      Size: enumOfStringsSimple('l', 'xl'),
+      Alignment: enumOfStringsSimple('middle', 'start', 'end'),
+      GeoType: enumOfStringsSimple('ellipse', 'rectangle'),
+      Fill: enumOfStringsSimple('pattern', 'none'),
+      Dash: enumOfStringsSimple('draw'),
+      ArrowHead: enumOfStringsSimple('arrow', 'none'),
 
       Props: {
         type: 'enum',
