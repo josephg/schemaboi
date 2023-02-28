@@ -8,6 +8,6 @@
   },
   "type": "module",
   "scripts": {
-    "test": "mocha"
+    "test": "npx tsc && mocha dist/test/"
   }
 }
