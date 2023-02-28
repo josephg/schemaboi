@@ -1,6 +1,6 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumSchema, MapType, Schema, StructSchema, SType} from './schema.js'
+import {EnumSchema, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
 import { enumOfStrings, mergeSchemas, ref } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
@@ -13,7 +13,7 @@ const console = new Console({
 })
 
 const mapOf = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType})
-const mapOfEntries = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType, asEntryList: true})
+const mapOfEntries = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType, decodeForm: 'entryList'})
 // const listOf = (fieldType: SType): List => ({type: 'list', fieldType})
 
 
@@ -21,24 +21,24 @@ const primitives = enumOfStrings('uint', 'sint', 'f32', 'f64', 'bool', 'string',
 
 const structSchema: StructSchema = {
   type: 'struct',
-  fields: {
-    foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
-    fields: { type: mapOfEntries(ref('StructField')), optional: false },
-  },
-  encode(e: StructSchema) {
-    return {
-      ...e,
-      fields: e.encodingOrder.map(key => [key, e.fields[key]])
-    }
-  },
-  decode(e: any): StructSchema {
-    return {
-      ...e,
-      fields: Object.fromEntries(e.fields),
-      encodingOrder: e.fields.map(([k, v]: [string, any]) => k),
-    }
-  },
-  encodingOrder: ['fields'],
+  fields: new Map([
+    ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }],
+    ['fields', { type: mapOfEntries(ref('StructField')), encoding: 'required' }],
+  ]),
+  // encode(e: StructSchema) {
+  //   return {
+  //     ...e,
+  //     fields: e.encodingOrder.map(key => [key, e.fields[key]])
+  //   }
+  // },
+  // decode(e: any): StructSchema {
+  //   return {
+  //     ...e,
+  //     fields: Object.fromEntries(e.fields),
+  //     encodingOrder: e.fields.map(([k, v]: [string, any]) => k),
+  //   }
+  // },
+  // encodingOrder: ['fields'],
 }
 
 export const metaSchema: Schema = {
@@ -48,14 +48,13 @@ export const metaSchema: Schema = {
   types: {
     Schema: {
       type: 'struct',
-      fields: {
-        id: { type: 'string', optional: false },
+      fields: new Map<string, StructField>([
+        ['id', { type: 'string', encoding: 'required' }],
 
         // Should this be optional or not?
-        root: { type: ref('SType'), optional: true },
-        types: { type: mapOf(ref('SchemaType')), optional: false },
-      },
-      encodingOrder: ['id', 'root', 'types']
+        ['root', { type: ref('SType'), encoding: 'optional' }],
+        ['types', { type: mapOf(ref('SchemaType')), encoding: 'required' }],
+      ])
     },
 
     Primitive: primitives,
@@ -65,96 +64,96 @@ export const metaSchema: Schema = {
       type: 'enum',
       closed: false,
       numericOnly: false,
-      variants: {
-        ...primitives.variants,
-        ref: {
+      variants: new Map([
+        ...primitives.variants.entries(),
+        ['ref', {
           associatedData: {
             type: 'struct',
-            fields: { key: { type: 'string', optional: false } },
-            encodingOrder: ['key'],
+            fields: new Map([['key', { type: 'string', encoding: 'required' }]]),
+            // encodingOrder: ['key'],
           }
-        },
-        list: {
+        }],
+        ['list', {
           associatedData: {
             type: 'struct',
-            fields: { fieldType: { type: ref('SType'), optional: false } },
-            encodingOrder: ['fieldType'],
+            fields: new Map([['fieldType', { type: ref('SType'), encoding: 'required' }]]),
+            // encodingOrder: ['fieldType'],
           }
-        },
-        map: {
+        }],
+        ['map', {
           associatedData: {
             type: 'struct',
-            fields: {
-              keyType: { type: ref('Primitive'), optional: false },
-              valType: { type: ref('SType'), optional: false },
-            },
-            encodingOrder: ['keyType', 'valType'],
+            fields: new Map([
+              ['keyType', { type: ref('Primitive'), encoding: 'required' }],
+              ['valType', { type: ref('SType'), encoding: 'required' }],
+            ]),
+            // encodingOrder: ['keyType', 'valType'],
           }
-        },
-      },
-      encodingOrder: [...primitives.encodingOrder, 'ref', 'list', 'map'],
+        }],
+      ]),
+      // encodingOrder: [...primitives.encodingOrder, 'ref', 'list', 'map'],
     },
 
     SchemaType: {
       type: 'enum',
       closed: true, // TODO: ??? Am I sure about this?
       numericOnly: false,
-      variants: {
-        enum: {
+      variants: new Map([
+        ['enum', {
           associatedData: {
             type: 'struct',
-            fields: {
-              foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
-              closed: { type: 'bool', optional: false },
-              numericOnly: { type: 'bool', optional: false },
-              variants: { type: mapOfEntries(ref('EnumVariant')), optional: false },
+            fields: new Map([
+              ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }], // Not stored.
+              ['closed', { type: 'bool', encoding: 'required' }],
+              ['numericOnly', { type: 'bool', encoding: 'required' }],
+              ['variants', { type: mapOfEntries(ref('EnumVariant')), encoding: 'required' }],
               // encodingOrder: {
               //   type: listOf('string')
               // }
-            },
-            encodingOrder: ['closed', 'numericOnly', 'variants'],
-            encode(e: EnumSchema) {
-              return {
-                ...e,
-                variants: e.encodingOrder.map(key => [key, e.variants[key]])
-              }
-            },
-            decode(e: any): EnumSchema {
-              return {
-                ...e,
-                variants: Object.fromEntries(e.variants),
-                encodingOrder: e.variants.map(([k, v]: [string, any]) => k),
-              }
-            },
+            ]),
+            // encodingOrder: ['closed', 'numericOnly', 'variants'],
+            // encode(e: EnumSchema) {
+            //   return {
+            //     ...e,
+            //     variants: e.encodingOrder.map(key => [key, e.variants[key]])
+            //   }
+            // },
+            // decode(e: any): EnumSchema {
+            //   return {
+            //     ...e,
+            //     variants: Object.fromEntries(e.variants),
+            //     encodingOrder: e.variants.map(([k, v]: [string, any]) => k),
+            //   }
+            // },
           }
-        },
-        struct: {
+        }],
+        ['struct', {
           associatedData: structSchema
-        },
-      },
-      encodingOrder: ['enum', 'struct'],
+        }],
+      ]),
+      // encodingOrder: ['enum', 'struct'],
     },
 
     EnumVariant: {
       type: 'struct',
-      fields: {
-        associatedData: { type: ref('StructSchema'), optional: true }
-      },
-      encodingOrder: ['associatedData'],
+      fields: new Map([
+        ['associatedData', { type: ref('StructSchema'), encoding: 'required' }]
+      ]),
+      // encodingOrder: ['associatedData'],
     },
 
     StructSchema: structSchema,
 
     StructField: {
       type: 'struct',
-      fields: {
-        type: { type: ref('SType'), optional: false },
+      fields: new Map([
         // defaultValue: { type: 'bool', defaultValue: false, optional: true }, // Not stored.
-        optional: { type: 'bool', optional: false },
-        foreign: { type: 'bool', defaultValue: true, optional: true }, // Not stored.
-        renameFieldTo: { type: 'bool', defaultValue: false, optional: true }, // Not stored.
-      },
-      encodingOrder: ['type', 'optional'],
+        ['type', { type: ref('SType'), encoding: 'required' }],
+        ['optional', { type: 'bool', encoding: 'required' }],
+        ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }], // Not stored.
+        ['renameFieldTo', { type: 'bool', defaultValue: false, encoding: 'unused' }], // Not stored.
+      ]),
+      // encodingOrder: ['type', 'optional'],
     },
   }
 }

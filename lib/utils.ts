@@ -98,6 +98,7 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
 
         // TODO: This makes sense for *reading* merged data, but it won't let us write.
         encoding: remoteF?.encoding ?? 'unused',
+        renameFieldTo: localF?.renameFieldTo,
       }
     }),
     // encodingOrder: remote.encodingOrder,
@@ -356,82 +357,3 @@ export const enumVariantsInUse = (e: EnumSchema): string[] => (
       ([k]) => k)
   ]
 )
-
-
-
-// ***** Testing code ******
-
-const testMergeSchema = () => {
-  const remote: Schema = extendSchema({
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          name: {type: 'string'},
-          address: {type: 'string'},
-        }
-      },
-      Color: enumOfStringsSimple('Red', 'Green'),
-    }
-  })
-
-  const local: Schema = extendSchema({
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          name: {type: 'string', defaultValue: 'Bruce'},
-          phoneNo: {type: 'string'},
-        }
-      },
-      Color: enumOfStringsSimple('Green', 'Blue'),
-    }
-  })
-
-  console.log(mergeSchemas(remote, local))
-}
-
-const testSimpleSchemaInference = () => {
-  const schema = <SimpleSchema>{
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          name: {type: 'string'},
-          address: {type: 'string'},
-        }
-      },
-
-      Shape: {
-        type: 'enum',
-        numericOnly: false,
-        variants: {
-          Line: null,
-          Square: {
-            associatedData: {
-              type: 'struct',
-              fields: { x: {type: 'f32'}, y: {type: 'f32'} }
-            }
-          }
-        }
-      },
-
-      Color: enumOfStringsSimple('Green', 'Red', 'Purple')
-    }
-  }
-
-  // console.log('encoding', simpleSchemaEncoding(schema))
-  // console.log('js', simpleJsMap(schema))
-
-
-  console.log(extendSchema(schema))
-}
-
-// testMergeSchema()
-// testSimpleSchemaInference()

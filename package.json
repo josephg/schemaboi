@@ -1,7 +1,13 @@
 {
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
+    "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.19",
+    "mocha": "^10.2.0",
     "typescript": "^4.9.5"
   },
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  }
 }

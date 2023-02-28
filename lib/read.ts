@@ -1,9 +1,9 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
 import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType, StructField } from "./schema.js"
-import {Console} from 'node:console'
 import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
 import { ref, mergeSchemas, extendSchema, enumVariantsInUse } from "./utils.js"
+import {Console} from 'node:console'
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
@@ -288,73 +288,3 @@ export function readData(schema: Schema, data: Uint8Array): any {
 
   return readThing(reader, schema, schema.root)
 }
-
-
-// ***** Testing code ******
-
-
-
-const testRead = () => {
-  const schema: Schema = {
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-
-        fields: new Map([
-          ['age', {type: 'uint', encoding: 'required'}],
-          ['name', {type: 'string', encoding: 'required'}],
-          // address: {type: 'string'},
-        ])
-      }
-    }
-  }
-
-  const data = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
-
-  console.log(readData(schema, data))
-}
-
-const testRead2 = () => {
-  const fileSchema: Schema = {
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        // encodingOrder: ['age', 'name'],
-        foreign: true,
-        fields: new Map([
-          ['age', {type: 'uint', encoding: 'required'}],
-          ['name', {type: 'string', encoding: 'required'}],
-          // address: {type: 'string'},
-        ])
-      }
-    }
-  }
-
-  const appSchema: SimpleSchema = {
-    id: 'Example',
-    root: ref('Contact'),
-    types: {
-      Contact: {
-        type: 'struct',
-        fields: {
-          // name: {type: 'string'},
-          age: {type: 'uint', optional: true, renameFieldTo: 'yearsOld'},
-          address: {type: 'string', optional: true, defaultValue: 'unknown location'},
-        }
-      }
-    }
-  }
-
-  const b = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
-
-  const mergedSchema = mergeSchemas(fileSchema, extendSchema(appSchema))
-  console.log(mergedSchema)
-  console.log(readData(mergedSchema, b))
-}
-
-// testRead()
-// testRead2()

@@ -53,7 +53,7 @@ export interface StructField {
   // Is this field be inlined into the bit fields? This is currently only supported for booleans.
   inline?: boolean,
 
-  encoding: 'unused' | 'optional' | 'required',
+  encoding: 'unused' | 'optional' | 'required', // TODO: Maybe rename unused -> skipped?
   // used: boolean, // Or something. Encoding type: missing / optional / required ?
 
   // encodeMap?: MapEncoding<any>
