@@ -7,12 +7,6 @@ const console = new Console({
   inspectOptions: {depth: null}
 })
 
-// const takeOrMerge = <T>(a: T?, b: T?, mergeFn: (a: T, b: T) => T): T => (
-//   a == null ? b!
-//   : b == null ? a!
-//   : mergeFn(a, b)
-// )
-
 const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T, b: T) => T): Record<string, T> => {
   const result: Record<string, T> = {}
   for (const key of mergedObjKeys(a, b)) {
@@ -317,42 +311,50 @@ export function *mapIter<A, B>(iter: IterableIterator<A>, mapFn: (v: A) => B): I
   }
 }
 
-export function countIter<V>(iter: IterableIterator<V>): number {
-  let count = 0
-  for (const _v of iter) count += 1
-  return count
-}
-export function countMatching<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
-  let count = 0
-  for (const v of iter) if (pred(v)) count += 1
-  return count
-}
+// export function countIter<V>(iter: IterableIterator<V>): number {
+//   let count = 0
+//   for (const _v of iter) count += 1
+//   return count
+// }
+// export function countMatching<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
+//   let count = 0
+//   for (const v of iter) if (pred(v)) count += 1
+//   return count
+// }
 
-export function any<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): boolean {
-  for (const v of iter) {
-    if (pred(v)) return true
-  }
-  return false
-}
+// export function any<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): boolean {
+//   for (const v of iter) {
+//     if (pred(v)) return true
+//   }
+//   return false
+// }
 
-export function firstIndexOf<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
-  let i = 0;
-  for (const v of iter) {
-    if (pred(v)) return i
-    ++i
-  }
-  return -1
-}
+// export function firstIndexOf<V>(iter: IterableIterator<V>, pred: (v: V) => boolean): number {
+//   let i = 0;
+//   for (const v of iter) {
+//     if (pred(v)) return i
+//     ++i
+//   }
+//   return -1
+// }
 
-export const hasOptionalFields = (s: StructSchema): boolean => (
-  // Could be more efficient, but eh.
-  any(s.fields.values(), v => v.encoding === 'optional')
-)
+// export const hasOptionalFields = (s: StructSchema): boolean => (
+//   // Could be more efficient, but eh.
+//   any(s.fields.values(), v => v.encoding === 'optional')
+// )
 
-export const hasAssociatedData = (s: StructSchema | null | undefined): boolean => (
-  s == null
-    ? false
-    : any(s.fields.values(), f => f.encoding !== "unused")
+// export const hasAssociatedData = (s: StructSchema | null | undefined): boolean => (
+//   s == null
+//     ? false
+//     : any(s.fields.values(), f => f.encoding !== "unused")
+// )
+
+export const enumVariantsInUse = (e: EnumSchema): string[] => (
+  [...
+    mapIter(
+      filterIter(e.variants.entries(), ([_k, v]) => !v.unused),
+      ([k]) => k)
+  ]
 )
 
 

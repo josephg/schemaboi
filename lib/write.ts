@@ -1,6 +1,6 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructField, StructSchema, SType } from "./schema.js"
-import { any, countIter, countMatching, extendSchema, filterIter, firstIndexOf, hasAssociatedData, hasOptionalFields, mapIter, ref } from "./utils.js"
+import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
+import { enumVariantsInUse, extendSchema, ref } from "./utils.js"
 
 import assert from 'assert/strict'
 import {Console} from 'node:console'
@@ -145,74 +145,6 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
   }
 }
 
-const tryGetEnum = (t: SType, schema: Schema): EnumSchema | null => {
-  if (typeof t !== 'object' || t.type !== 'ref') return null
-  const inner = schema.types[t.key]
-  return inner.type === 'enum' ? inner : null
-}
-
-const enumUsedStates = (e: EnumSchema): number => (
-  // Probably better done in 1 pass.
-  countMatching(e.variants.values(), v => !v.unused)
-)
-
-/**
- * There's a few ways we can encode data, and we need to decide at this point how we'll do it.
- *
- * Essentially we have up to 2 pieces of data for each field:
- *
- * - Is the field *present*?
- * - Whats the field's value?
- *
- * For efficiency, structs are encoded in two parts: A bit block, and a value block. The bit block
- * stores packed bits for small fields and optional encoding information. Basically, everything that needs
- * 2 bits or less to store. The value block stores everything else.
- *
- * We need to decide how this data will be stored. We can count the number of different states at play. If there is:
- *
- * - 1 state, we don't need to store anything to know the state of the field. Eg, if a numeric enum only has 1 variant.
- * - 2 states, we'll use a single bit. Eg, an optional enum with 1 variant, or a required boolean
- * - up to 4 states: We can use 2 bits in the bit block
- * - More states than that, store the field in the value block.
- *
- * This method essentially returns 3 bits:
- *
- * - Are we storing whether this field is optional?
- * - Are we storing the field's value in the bit block?
- * - Are we storing the field's value in the value block?
- *
- * Note for enums, we always store associated data in the value block regardless
- *
- * 0b000: 1 state, nothing needs to be stored.
- * 0b001: Required field, stored in the value block. Eg required string
- * 0b010: Required field with 2 states, stored in optional block (eg bool)
- * 0b011: Enum with 2 states
- * 0b100: Optional field, but if present it only has 1 valid state anyway.
- * 0b101: Optional field with multi-bit data. Eg, optional string
- * 0b110: Optional field stored in bit block. Eg, optional enum with 2 states.
- * 0b111: Optional enum with 2 states
- */
-// const encodingStrategy = (f: StructField, schema: Schema): number => {
-//   if (f.encoding === 'unused') return 0b000
-
-//   if (f.type === 'bool') return f.encoding === 'required' ? 0b010 : 0b110
-
-//   const e = tryGetEnum(f.type, schema)
-//   if (e) {
-//     // const hasData = !e.numericOnly && any(e.variants.values(), v => hasAssociatedData(v.associatedData))
-//     const states = filterIter(e.variants.values(), v => !v.unused)
-//   }
-
-//   return f.encoding === 'required' ? 0b001 : 0b101
-// }
-
-
-// const enum Foo {
-//   StoreOptional = 4,
-//   StoreValueInBits = 2,
-//   StoreValueInValueBlock = 1,
-// }
-
 /**
  * Each struct is stored in 2 blocks of data:
  *
@@ -307,11 +239,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
 // For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
 function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema, parent?: any) {
   // const usedVariants = (e.usedVariants ??= enumUsedStates(e))
-  const usedVariants = [...
-    mapIter(
-      filterIter(e.variants.entries(), ([_k, v]) => !v.unused),
-      ([k]) => k)
-  ]
+  const usedVariants = enumVariantsInUse(e)
 
   // We need to write 2 pieces of data:
   // 1. Which variant we're encoding

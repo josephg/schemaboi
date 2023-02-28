@@ -2,8 +2,8 @@
 
 import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType, StructField } from "./schema.js"
 import {Console} from 'node:console'
-import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { ref, mergeSchemas, hasOptionalFields, mapIter, filterIter, extendSchema } from "./utils.js"
+import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
+import { ref, mergeSchemas, extendSchema, enumVariantsInUse } from "./utils.js"
 const console = new Console({
   stdout: process.stdout,
   stderr: process.stderr,
@@ -155,11 +155,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 }
 
 function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumObject {
-  const usedVariants = [...
-    mapIter(
-      filterIter(e.variants.entries(), ([_k, v]) => !v.unused),
-      ([k]) => k)
-  ]
+  const usedVariants = enumVariantsInUse(e)
 
   if (usedVariants.length == 0) throw Error('Cannot decode enum with no variants')
 
