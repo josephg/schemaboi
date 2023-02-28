@@ -1,13 +1,21 @@
 {
+  "name": "schemaboi",
+  "version": "0.1.0",
+  "description": "Binary serialization library with long-now schema migration and app support",
+  "main": "index.js",
+  "repository": "git@github.com:josephg/schemaboi.git",
+  "author": "Seph Gentle <me@josephg.com>",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "test": "npx tsc && mocha dist/test/",
+    "prepare": "rm -rf dist && tsc -p ."
+  },
   "dependencies": {},
   "devDependencies": {
     "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.19",
     "mocha": "^10.2.0",
     "typescript": "^4.9.5"
-  },
-  "type": "module",
-  "scripts": {
-    "test": "npx tsc && mocha dist/test/"
   }
 }

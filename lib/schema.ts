@@ -1,11 +1,7 @@
 
 /*
 
-- Packed bit fields
-- Encoding fields -> Map??
 - Numeric types -> u8/s8/etc + encoding
-
-
 
 - Mapping & read / write visitors
 - Promoting fields to lists?

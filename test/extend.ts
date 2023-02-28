@@ -3,6 +3,12 @@ import 'mocha'
 import { SimpleSchema } from '../lib/schema.js'
 import { enumOfStringsSimple, extendSchema, ref } from '../lib/utils.js'
 
+import {Console} from 'node:console'
+const console = new Console({
+  stdout: process.stdout,
+  stderr: process.stderr,
+  inspectOptions: {depth: null}
+})
 
 describe('extend', () => {
   it('simple test', () => {
@@ -15,6 +21,7 @@ describe('extend', () => {
           fields: {
             name: {type: 'string'},
             address: {type: 'string'},
+            coolness: {type: 'bool'},
           }
         },
 
