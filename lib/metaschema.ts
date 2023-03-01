@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { enumOfStrings, filterIter, mergeSchemas, ref } from './utils.js'
+import {EnumSchema, EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
+import { Bool, enumOfStrings, fillSchemaDefaults, filterIter, mergeSchemas, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 import * as assert from 'assert/strict'
@@ -19,18 +19,12 @@ const mapOf = (valType: SType, decodeForm: 'object' | 'map' | 'entryList' = 'obj
 // const listOf = (fieldType: SType): List => ({type: 'list', fieldType})
 
 
-const primitives = enumOfStrings(
-  'bool',
-  'u8', 'u16', 'u32', 'u64', 'u128',
-  's8', 's16', 's32', 's64', 's128',
-  'f32', 'f64',
-  'string', 'binary', 'id',
-)
-
 const structSchema: StructSchema = {
   type: 'struct',
   fields: new Map<string, StructField>([
-    ['foreign', { type: 'bool', defaultValue: true, skip: true }],
+    // ['type', {type: 'string', defaultValue: 'struct', skip: true}],
+
+    ['foreign', { type: Bool, defaultValue: false, skip: true }],
     ['fields', { type: mapOf(ref('StructField'), 'map'), optional: false }],
   ]),
   encode(obj: StructSchema) {
@@ -64,7 +58,7 @@ export const metaSchema: Schema = {
     Schema: {
       type: 'struct',
       fields: new Map<string, StructField>([
-        ['id', { type: 'string' }],
+        ['id', { type: String }],
 
         // Should this be optional or not?
         ['root', { type: ref('SType'), optional: true }],
@@ -72,7 +66,13 @@ export const metaSchema: Schema = {
       ]),
     },
 
-    Primitive: primitives,
+    Primitive: enumOfStrings(
+      'bool',
+      'u8', 'u16', 'u32', 'u64', 'u128',
+      's8', 's16', 's32', 's64', 's128',
+      'f32', 'f64',
+      'string', 'binary', 'id',
+    ),
 
     SType: {
       // This has all the types in Primitive, and more!
@@ -80,11 +80,17 @@ export const metaSchema: Schema = {
       closed: false,
       numericOnly: false,
       variants: new Map<string, EnumVariant>([
-        ...primitives.variants.entries(),
+        ['primitive', {
+          associatedData: {
+            type: 'struct',
+            fields: new Map<string, StructField>([['inner', { type: ref('Primitive') }]]),
+            // encodingOrder: ['key'],
+          }
+        }],
         ['ref', {
           associatedData: {
             type: 'struct',
-            fields: new Map<string, StructField>([['key', { type: 'string' }]]),
+            fields: new Map<string, StructField>([['key', { type: String }]]),
             // encodingOrder: ['key'],
           }
         }],
@@ -102,7 +108,7 @@ export const metaSchema: Schema = {
               ['keyType', { type: ref('Primitive') }],
               ['valType', { type: ref('SType') }],
               // Type should be enumOfStrings('object', 'map', 'entryList'), but it doesn't matter.
-              ['decodeForm', { type: 'string', skip: true, defaultValue: 'object' }],
+              // ['decodeForm', { type: 'string', skip: true, defaultValue: 'object' }],
             ]),
             // encodingOrder: ['keyType', 'valType'],
           }
@@ -120,9 +126,10 @@ export const metaSchema: Schema = {
           associatedData: {
             type: 'struct',
             fields: new Map<string, StructField>([
-              ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
-              ['closed', { type: 'bool', inline: true }],
-              ['numericOnly', { type: 'bool', inline: true }],
+              // ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
+              ['foreign', { type: Bool, defaultValue: false, skip: true }], // Not stored.
+              ['closed', { type: Bool, inline: true }],
+              ['numericOnly', { type: Bool, inline: true }],
               ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
             ]),
           }
@@ -153,7 +160,7 @@ export const metaSchema: Schema = {
         // ['inline', { type: 'bool', skip: true, optional: true }],
         // ['skip', { type: 'bool', skip: true, defaultValue: false, inline: true }],
 
-        ['optional', { type: 'bool', defaultValue: false, inline: true}],
+        ['optional', { type: Bool, defaultValue: false, inline: true}],
       ]),
     },
   }
@@ -168,6 +175,15 @@ const metameta = () => {
   console.log(bytes)
   const remoteSchema = readData(metaSchema, bytes)
   // console.log(remoteSchema)
+  fillSchemaDefaults(metaSchema)
+  fillSchemaDefaults(remoteSchema)
+
+  // console.log(metaSchema)
+  // assert.deepEqual(metaSchema.types.SType, remoteSchema.types.SType)
+  console.log((metaSchema.types.SType as EnumSchema))
+  console.log((remoteSchema.types.SType as EnumSchema))
+  // console.log((metaSchema.types.SType as EnumSchema).variants.get('map'))
+  // console.log((remoteSchema.types.SType as EnumSchema).variants.get('map'))
 
   // assert.deepEqual(remoteSchema, metaSchema)
   // const m = mergeSchemas(remoteSchema, metaSchema)

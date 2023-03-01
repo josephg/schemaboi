@@ -220,7 +220,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
       // TODO: Also write bits for enums with 2 in-use fields!
       if (field.inline) {
         // console.log('write inlined', k)
-        if (field.type === 'bool') writeBit?.(v)
+        if (field.type.type === 'primitive' && field.type.inner === 'bool') writeBit?.(v)
         else throw Error('Inlining non-boolean fields not supported')
       } else {
         writeThing?.(v, field.type)
@@ -280,51 +280,50 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
 }
 
 function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, parent?: any) {
-  if (typeof type === 'object') { // Animal, mineral or vegetable...
-    switch (type.type) {
-      case 'ref': {
-        const innerType = schema.types[type.key]
-        switch (innerType.type) {
-          case 'struct':
-            // console.log('encode ref', type.key)
-            encodeStruct(w, schema, val, innerType)
-            break
-          case 'enum':
-            encodeEnum(w, schema, val, innerType, parent)
-            break
-          default:
-            const exhaustiveCheck: never = innerType
-        }
+  switch (type.type) {
+    case 'primitive':
+      encodePrimitive(w, val, type.inner)
+      break
+    case 'ref': {
+      const innerType = schema.types[type.key]
+      switch (innerType.type) {
+        case 'struct':
+          // console.log('encode ref', type.key)
+          encodeStruct(w, schema, val, innerType)
+          break
+        case 'enum':
+          encodeEnum(w, schema, val, innerType, parent)
+          break
+        default:
+          const exhaustiveCheck: never = innerType
+      }
 
-        break
-      }
-      case 'list': {
-        if (!Array.isArray(val)) throw Error('Cannot encode item as list')
-        writeVarInt(w, val.length)
-        // TODO: Consider special-casing bit arrays.
-        for (const v of val) {
-          encodeThing(w, schema, v, type.fieldType)
-        }
-        break
-      }
-      case 'map': {
-        // Maps can also be provided as a list of [k,v] entries.
-        const entries = Array.isArray(val) ? val
-          : val instanceof Map ? Array.from(val.entries()) // TODO: Remove this allocation.
-          : Object.entries(val)
-        writeVarInt(w, entries.length)
-        for (const [k, v] of entries) {
-          encodePrimitive(w, k, type.keyType)
-          encodeThing(w, schema, v, type.valType)
-        }
-        break
-      }
-      default:
-        const exhaustiveCheck: never = type;
-        throw new Error('unhandled case');
+      break
     }
-  } else {
-    encodePrimitive(w, val, type)
+    case 'list': {
+      if (!Array.isArray(val)) throw Error('Cannot encode item as list')
+      writeVarInt(w, val.length)
+      // TODO: Consider special-casing bit arrays.
+      for (const v of val) {
+        encodeThing(w, schema, v, type.fieldType)
+      }
+      break
+    }
+    case 'map': {
+      // Maps can also be provided as a list of [k,v] entries.
+      const entries = Array.isArray(val) ? val
+        : val instanceof Map ? Array.from(val.entries()) // TODO: Remove this allocation.
+        : Object.entries(val)
+      writeVarInt(w, entries.length)
+      for (const [k, v] of entries) {
+        encodePrimitive(w, k, type.keyType)
+        encodeThing(w, schema, v, type.valType)
+      }
+      break
+    }
+    default:
+      const exhaustiveCheck: never = type;
+      throw new Error('unhandled case');
   }
 }
 

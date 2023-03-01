@@ -1,7 +1,7 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
 import {SimpleSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
-import { enumOfStringsSimple, extendSchema, ref } from "../lib/utils.js"
+import { Bool, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
 import { readData } from "../lib/read.js"
 import { toBinary } from "../lib/write.js"
 
@@ -33,17 +33,17 @@ describe('roundtrips', () => {
     it('works with strings', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: 'string',
+        root: String,
         types: {}
       }
-    
+
       testRoundTrip(schema, 'hi there')
     })
 
     it('works with lists', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'list', fieldType: 'f64'},
+        root: {type: 'list', fieldType: prim('f64')},
         types: {}
       }
     
@@ -53,7 +53,7 @@ describe('roundtrips', () => {
     it('works with maps', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64'},
+        root: {type: 'map', keyType: 'string', valType: prim('f64')},
         types: {}
       }
     
@@ -63,7 +63,7 @@ describe('roundtrips', () => {
     it('works with maps using entry list decoding form', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'entryList'},
+        root: {type: 'map', keyType: 'string', valType: prim('f64'), decodeForm: 'entryList'},
         types: {}
       }
 
@@ -75,7 +75,7 @@ describe('roundtrips', () => {
     it('works with maps using map decoding form', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'map'},
+        root: {type: 'map', keyType: 'string', valType: prim('f64'), decodeForm: 'map'},
         types: {}
       }
     
@@ -93,7 +93,7 @@ describe('roundtrips', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string'},
+            name: {type: String},
           }
         }
       }
@@ -133,9 +133,9 @@ describe('roundtrips', () => {
                 associatedData: {
                   type: 'struct',
                   fields: {
-                    r: {type: 'u8', optional: true},
-                    g: {type: 'u8', optional: true},
-                    b: {type: 'u8', optional: true},
+                    r: {type: prim('u8'), optional: true},
+                    g: {type: prim('u8'), optional: true},
+                    b: {type: prim('u8'), optional: true},
                   }
                 }
               }
@@ -169,9 +169,9 @@ describe('roundtrips', () => {
                 associatedData: {
                   type: 'struct',
                   fields: {
-                    r: {type: 'u8'},
-                    g: {type: 'u8'},
-                    b: {type: 'u8'},
+                    r: {type: prim('u8')},
+                    g: {type: prim('u8')},
+                    b: {type: prim('u8')},
                   }
                 }
               }
@@ -200,10 +200,10 @@ describe('roundtrips', () => {
           Contact: {
             type: 'struct',
             fields: {
-              name: {type: 'string', optional: true},
-              age: {type: 'u32', optional: true},
-              addresses: {type: {type: 'list', fieldType: 'string'}, optional: true}
-              // address: {type: 'string'},
+              name: {type: String, optional: true},
+              age: {type: prim('u32'), optional: true},
+              addresses: {type: {type: 'list', fieldType: String}, optional: true}
+              // address: {type: String},
             }
           }
         }
@@ -223,11 +223,11 @@ describe('roundtrips', () => {
           Bools: {
             type: 'struct',
             fields: new Map<string, StructField>([
-              ['a', {type: 'bool', optional: false, inline: false}],
-              ['b', {type: 'bool', optional: true, inline: false}],
+              ['a', {type: Bool, optional: false, inline: false}],
+              ['b', {type: Bool, optional: true, inline: false}],
 
-              ['c', {type: 'bool', optional: false, inline: true}],
-              ['d', {type: 'bool', optional: true, inline: true}],
+              ['c', {type: Bool, optional: false, inline: true}],
+              ['d', {type: Bool, optional: true, inline: true}],
             ])
           }
         }
@@ -251,10 +251,10 @@ describe('roundtrips', () => {
           Bools: {
             type: 'struct',
             fields: new Map<string, StructField>([
-              ['a', {type: 'bool', optional: false, inline: false, defaultValue: true}],
-              ['b', {type: 'bool', optional: false, inline: false, defaultValue: false}],
-              ['c', {type: 'bool', optional: false, inline: true, defaultValue: true}],
-              ['d', {type: 'bool', optional: false, inline: true, defaultValue: false}],
+              ['a', {type: Bool, optional: false, inline: false, defaultValue: true}],
+              ['b', {type: Bool, optional: false, inline: false, defaultValue: false}],
+              ['c', {type: Bool, optional: false, inline: true, defaultValue: true}],
+              ['d', {type: Bool, optional: false, inline: true, defaultValue: false}],
             ])
           }
         }
@@ -275,17 +275,17 @@ describe('roundtrips', () => {
           NumTest: {
             type: 'struct',
             fields: {
-              u8: {type: 'u8'},
-              u16: {type: 'u16'},
-              u32: {type: 'u32'},
-              u64: {type: 'u64'},
-              u128: {type: 'u128'},
+              u8: {type: prim('u8')},
+              u16: {type: prim('u16')},
+              u32: {type: prim('u32')},
+              u64: {type: prim('u64')},
+              u128: {type: prim('u128')},
 
-              s8: {type: 's8'},
-              s16: {type: 's16'},
-              s32: {type: 's32'},
-              s64: {type: 's64'},
-              s128: {type: 's128'},
+              s8: {type: prim('s8')},
+              s16: {type: prim('s16')},
+              s32: {type: prim('s32')},
+              s64: {type: prim('s64')},
+              s128: {type: prim('s128')},
             }
           }
         }
@@ -306,8 +306,8 @@ describe('roundtrips', () => {
           IdTest: {
             type: 'struct',
             fields: {
-              foo: {type: 'id'},
-              bar: {type: 'id'},
+              foo: {type: Id},
+              bar: {type: Id},
             }
           }
         }

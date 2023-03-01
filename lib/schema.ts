@@ -1,18 +1,3 @@
-
-/*
-
-- Numerics optionally decode to bigint
-- Make root type be Optional? Or wrap optionals differently?
-- Default value can be a constructor function
-
-- Mapping & read / write visitors
-- Promoting fields to lists?
-- Metaschema 2.0
-- Mixins?
-- Maps and lists should support encoding iterators
-
-*/
-
 export type Primitive = 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
   | 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
   | 's8' | 's16' | 's32' | 's64' | 's128'
@@ -27,7 +12,12 @@ export interface MapType { // MapType rather than Map because Map is the name of
   // asEntryList?: true,
   decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
 }
-export type SType = Primitive | Ref | List | MapType
+export interface WrappedPrimitive {
+  type: 'primitive',
+  inner: Primitive
+}
+
+export type SType = Ref | List | MapType | WrappedPrimitive
 
 // export type MapEncoding<T> = {
 //   fromEntries: (entries: [any, any][]) => T,
@@ -82,7 +72,7 @@ export interface StructField {
 export interface StructSchema {
   type: 'struct',
 
-  /** Is the struct locally known / referenced? */
+  /** Is the struct locally known / referenced? Defaults to false. */
   foreign?: boolean,
 
   fields: Map<string, StructField>,

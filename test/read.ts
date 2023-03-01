@@ -2,7 +2,7 @@ import 'mocha'
 import * as assert from 'assert/strict'
 import { readData } from '../lib/read.js'
 import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
-import { extendSchema, mergeSchemas, ref } from '../lib/utils.js'
+import { extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -21,14 +21,14 @@ describe('read', () => {
           type: 'struct',
   
           fields: new Map<string, StructField>([
-            ['age', {type: 'u32'}],
-            ['name', {type: 'string'}],
-            // address: {type: 'string'},
+            ['age', {type: prim('u32')}],
+            ['name', {type: String}],
+            // address: {type: String},
           ])
         }
       }
     }
-  
+
     const data = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
     const output = readData(schema, data)
     assert.deepEqual(output, {age: 123, name: 'seph'})
@@ -44,9 +44,9 @@ describe('read', () => {
           // encodingOrder: ['age', 'name'],
           foreign: true,
           fields: new Map<string, StructField>([
-            ['age', {type: 'u32'}],
-            ['name', {type: 'string'}],
-            // address: {type: 'string'},
+            ['age', {type: prim('u32')}],
+            ['name', {type: String}],
+            // address: {type: String},
           ])
         }
       }
@@ -59,9 +59,9 @@ describe('read', () => {
         Contact: {
           type: 'struct',
           fields: {
-            // name: {type: 'string'},
-            age: {type: 'u32', optional: true, renameFieldTo: 'yearsOld'},
-            address: {type: 'string', optional: true, defaultValue: 'unknown location'},
+            // name: {type: String},
+            age: {type: prim('u32'), optional: true, renameFieldTo: 'yearsOld'},
+            address: {type: String, optional: true, defaultValue: 'unknown location'},
           }
         }
       }

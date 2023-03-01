@@ -68,7 +68,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   const missingFields = new Set<string>()
 
   const storeVal = (k: string, field: StructField, v: any) => {
-    // console.log('storeVal', k, v)
+    // console.log('storeVal', k, v, field.defaultValue, field)
     v ??= (field.defaultValue ?? null)
     if (field.foreign) {
       console.warn(`Warning: foreign field '${k}' in struct`)
@@ -91,10 +91,12 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 
     // TODO: Consider also encoding enums with 2 in-use fields like this!
     if (field.inline) {
-      if (field.type === 'bool') storeVal(k, field, hasValue ? readNextBit() : null)
+      if (field.type.type === 'primitive' && field.type.inner === 'bool') storeVal(k, field, hasValue ? readNextBit() : null)
       else throw Error('Cannot read inlined field of non-bool type')
     }
   }
+
+  // console.log('missing fields', missingFields)
 
   // Now read the data itself.
   for (const [k, field] of struct.fields.entries()) {
@@ -254,52 +256,49 @@ function readPrimitive(r: Reader, type: Primitive): any {
 }
 
 function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
-  if (typeof type === 'string') {
-    return readPrimitive(r, type)
-  } else {
-    switch (type.type) {
-      case 'ref': {
-        const inner = schema.types[type.key]
-        if (inner.type === 'struct') return readStruct(r, schema, inner)
-        else if (inner.type === 'enum') return readEnum(r, schema, inner, parent)
-        else { const exhaustiveCheck: never = inner }
-        break
+  switch (type.type) {
+    case 'primitive': return readPrimitive(r, type.inner)
+    case 'ref': {
+      const inner = schema.types[type.key]
+      if (inner.type === 'struct') return readStruct(r, schema, inner)
+      else if (inner.type === 'enum') return readEnum(r, schema, inner, parent)
+      else { const exhaustiveCheck: never = inner }
+      break
+    }
+    case 'list': {
+      const length = readVarInt(r)
+      // console.log('length', length)
+      const result = []
+      for (let i = 0; i < length; i++) {
+        result.push(readThing(r, schema, type.fieldType))
       }
-      case 'list': {
-        const length = readVarInt(r)
-        // console.log('length', length)
-        const result = []
+      return result
+    }
+    case 'map': {
+      if (type.keyType !== 'string' && type.keyType !== 'id') throw Error('Cannot read map with non-string keys in javascript')
+      const length = readVarInt(r)
+      if (type.decodeForm == null || type.decodeForm == 'object') {
+        const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
-          result.push(readThing(r, schema, type.fieldType))
+          const k = readPrimitive(r, type.keyType)
+          const v = readThing(r, schema, type.valType)
+          result[k] = v
         }
         return result
-      }
-      case 'map': {
-        if (type.keyType !== 'string' && type.keyType !== 'id') throw Error('Cannot read map with non-string keys in javascript')
-        const length = readVarInt(r)
-        if (type.decodeForm == null || type.decodeForm == 'object') {
-          const result: Record<string, any> = {}
-          for (let i = 0; i < length; i++) {
-            const k = readPrimitive(r, type.keyType)
-            const v = readThing(r, schema, type.valType)
-            result[k] = v
-          }
-          return result
-        } else {
-          const entries: [number | string | boolean, any][] = []
-          for (let i = 0; i < length; i++) {
-            const k = readPrimitive(r, type.keyType)
-            const v = readThing(r, schema, type.valType)
-            entries.push([k, v])
-          }
-          return type.decodeForm == 'entryList'
-            ? entries
-            : new Map(entries)
+      } else {
+        const entries: [number | string | boolean, any][] = []
+        for (let i = 0; i < length; i++) {
+          const k = readPrimitive(r, type.keyType)
+          const v = readThing(r, schema, type.valType)
+          entries.push([k, v])
         }
+        return type.decodeForm == 'entryList'
+          ? entries
+          : new Map(entries)
       }
-      default:
-        const expectNever: never = type
     }
+    default:
+      const expectNever: never = type
   }
 }
 

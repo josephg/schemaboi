@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, WrappedPrimitive, Primitive } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -196,7 +196,7 @@ function extendStruct(s: SimpleStructSchema): StructSchema {
     fields: objMapToMap(s.fields, f => ({
       type: f.type,
       defaultValue: f.defaultValue,
-      inline: f.type === 'bool' ? true : false, // Inline booleans.
+      inline: f.type.type === 'primitive' && f.type.inner === 'bool' ? true : false, // Inline booleans.
       optional: f.optional ?? false,
       skip: false,
       // encoding: f.optional ? 'optional' : 'required',
@@ -239,10 +239,10 @@ export const isRef = (x: SType): x is {type: 'ref', key: string} => (
 )
 
 export const typesShallowEq = (a: SType, b: SType): boolean => {
-  if (a === b) return true
-  if (typeof a === 'string' || typeof b === 'string') return false
   if (a.type !== b.type) return false
   switch (a.type) {
+    case 'primitive':
+      return a.inner === (b as WrappedPrimitive).inner
     case 'ref':
       return a.key === (b as Ref).key
     case 'list':
@@ -362,3 +362,62 @@ export const enumVariantsInUse = (e: EnumSchema): string[] => (
       ([k]) => k)
   ]
 )
+
+
+
+const fillSTypeDefaults = (t: SType) => {
+  if (typeof t === 'object') {
+    if (t.type === 'map') {
+      t.decodeForm ??= 'object'
+      fillSTypeDefaults(t.valType)
+    } else if (t.type === 'list') {
+      fillSTypeDefaults(t.fieldType)
+    }
+  }
+}
+
+const fillStructDefaults = (s: StructSchema) => {
+  s.foreign ??= false
+  for (const field of s.fields.values()) {
+    fillSTypeDefaults(field.type)
+    field.defaultValue ??= null // ??
+    field.foreign ??= false
+    field.renameFieldTo ??= undefined // ???
+    field.inline ??= false
+    field.skip ??= false
+    field.optional ??= false
+  }
+}
+
+const fillEnumDefaults = (s: EnumSchema) => {
+  s.foreign ??= false
+  s.typeFieldOnParent ??= undefined
+  for (const variant of s.variants.values()) {
+    variant.associatedData ??= undefined
+    variant.foreign ??= false
+    variant.skip ??= false
+
+    if (variant.associatedData) {
+      fillStructDefaults(variant.associatedData)
+    }
+  }
+}
+
+/** Modifies the schema in-place! */
+export function fillSchemaDefaults(s: Schema): Schema {
+  fillSTypeDefaults(s.root)
+  for (const k in s.types) {
+    const t = s.types[k]
+    switch (t.type) {
+      case 'enum': fillEnumDefaults(t); break
+      case 'struct': fillStructDefaults(t); break
+      default: const x: never = t
+    }
+  }
+  return s
+}
+
+export const prim = (inner: Primitive): SType => ({type: 'primitive', inner})
+export const String: SType = prim('string')
+export const Id: SType = prim('id')
+export const Bool: SType = prim('bool')

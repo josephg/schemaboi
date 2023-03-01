@@ -1,7 +1,7 @@
 // Test that we can extend schemas
 import 'mocha'
 import { SimpleSchema } from '../lib/schema.js'
-import { enumOfStringsSimple, extendSchema, ref } from '../lib/utils.js'
+import { Bool, enumOfStringsSimple, extendSchema, prim, ref, String } from '../lib/utils.js'
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -19,9 +19,9 @@ describe('extend', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string'},
-            address: {type: 'string'},
-            coolness: {type: 'bool'},
+            name: {type: String},
+            address: {type: String},
+            coolness: {type: Bool},
           }
         },
 
@@ -33,7 +33,7 @@ describe('extend', () => {
             Square: {
               associatedData: {
                 type: 'struct',
-                fields: { x: {type: 'f32'}, y: {type: 'f32'} }
+                fields: { x: {type: prim('f32')}, y: {type: prim('f32')} }
               }
             }
           }

@@ -2,7 +2,7 @@ import 'mocha'
 import * as assert from 'assert/strict'
 import { toBinary } from '../lib/write.js'
 import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
-import { extendSchema, ref } from '../lib/utils.js'
+import { Bool, extendSchema, prim, ref, String } from '../lib/utils.js'
 
 describe('write', () => {
   it('simple test', () => {
@@ -13,9 +13,9 @@ describe('write', () => {
         Contact: {
           type: 'struct',
           fields: new Map<string, StructField>([
-            ['name', {type: 'string', optional: true}],
-            ['age', {type: 'u32'}]
-            // address: {type: 'string'},
+            ['name', {type: String, optional: true}],
+            ['age', {type: prim('u32')}]
+            // address: {type: String},
           ])
         }
       }
@@ -36,11 +36,11 @@ describe('write', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string'},
-            age: {type: 'u32', optional: false},
-            supercool: {type: 'bool', defaultValue: true},
-            addresses: {type: {type: 'list', fieldType: 'string'}},
-            // address: {type: 'string'},
+            name: {type: String},
+            age: {type: prim('u32'), optional: false},
+            supercool: {type: Bool, defaultValue: true},
+            addresses: {type: {type: 'list', fieldType: String}},
+            // address: {type: String},
             favoriteColor: {type: {type: 'ref', key: 'Color'}},
             worstColor: {type: {type: 'ref', key: 'Color'}},
             hairColor: {type: {type: 'ref', key: 'Color'}},
@@ -57,9 +57,9 @@ describe('write', () => {
               associatedData: {
                 type: 'struct',
                 fields: {
-                  r: {type: 'u32'},
-                  g: {type: 'u32'},
-                  b: {type: 'u32'},
+                  r: {type: prim('u32')},
+                  g: {type: prim('u32')},
+                  b: {type: prim('u32')},
                 }
               }
             }

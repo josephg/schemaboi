@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict'
 import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
-import { enumOfStrings, enumOfStringsSimple, extendSchema, mergeSchemas, ref } from '../lib/utils.js'
+import { enumOfStrings, enumOfStringsSimple, extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -61,9 +61,9 @@ describe('merging', () => {
           // encodingOrder: ['age', 'name'],
           foreign: true,
           fields: new Map<string, StructField>([
-            ['name', {type: 'string', foreign: true, optional: false}],
-            ['age', {type: 'u32', foreign: true, optional: false}],
-            // address: {type: 'string'},
+            ['name', {type: String, foreign: true, optional: false}],
+            ['age', {type: prim('u32'), foreign: true, optional: false}],
+            // address: {type: String},
           ])
         },
         Color: enumOfStrings('Red', 'Blue'),
@@ -78,9 +78,9 @@ describe('merging', () => {
           type: 'struct',
           // encodingOrder: [],
           fields: new Map<string, StructField>([
-            // name: {type: 'string'},
-            ['age', {type: 'u32', skip: true, renameFieldTo: 'yearsOld'}],
-            ['address', {type: 'string', skip: true, defaultValue: 'unknown location'}],
+            // name: {type: String},
+            ['age', {type: prim('u32'), skip: true, renameFieldTo: 'yearsOld'}],
+            ['address', {type: String, skip: true, defaultValue: 'unknown location'}],
           ])
         },
         Color: enumOfStrings('Red', 'Bronze'),
@@ -109,8 +109,8 @@ describe('merging', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string'},
-            address: {type: 'string'},
+            name: {type: String},
+            address: {type: String},
           }
         },
         Color: enumOfStringsSimple('Red', 'Green'),
@@ -124,8 +124,8 @@ describe('merging', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string', defaultValue: 'Bruce'},
-            phoneNo: {type: 'string'},
+            name: {type: String, defaultValue: 'Bruce'},
+            phoneNo: {type: String},
           }
         },
         Color: enumOfStringsSimple('Green', 'Blue'),
@@ -142,9 +142,9 @@ describe('merging', () => {
           type: 'struct',
           foreign: false,
           fields: new Map<string, StructField>([
-            ['name', {type: 'string', foreign: false, skip: false, defaultValue: 'Bruce', optional: false, renameFieldTo: undefined}],
-            ['address', {type: 'string', foreign: true, skip: false, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
-            ['phoneNo', {type: 'string', foreign: false, skip: true, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
+            ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false, renameFieldTo: undefined}],
+            ['address', {type: String, foreign: true, skip: false, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
+            ['phoneNo', {type: String, foreign: false, skip: true, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
           ])
         },
 
