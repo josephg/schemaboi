@@ -1,14 +1,14 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
 import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
-import { enumVariantsInUse, extendSchema, isPrimitive, ref } from "./utils.js"
+import { assert, enumVariantsInUse, extendSchema, isPrimitive, ref } from "./utils.js"
 
-import assert from 'assert/strict'
-import {Console} from 'node:console'
-const console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: null}
-})
+// import assert from 'assert/strict'
+// import {Console} from 'node:console'
+// const console = new Console({
+//   stdout: process.stdout,
+//   stderr: process.stderr,
+//   inspectOptions: {depth: null}
+// })
 
 interface WriteBuffer {
   buffer: Uint8Array,

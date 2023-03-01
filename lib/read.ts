@@ -1,14 +1,14 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType, StructField } from "./schema.js"
+import { EnumObject, EnumSchema, Primitive, Schema, StructSchema, SType, StructField } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { ref, mergeSchemas, extendSchema, enumVariantsInUse, isPrimitive } from "./utils.js"
-import {Console} from 'node:console'
-const console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: null}
-})
+import { enumVariantsInUse, isPrimitive } from "./utils.js"
+// import {Console} from 'node:console'
+// const console = new Console({
+//   stdout: process.stdout,
+//   stderr: process.stderr,
+//   inspectOptions: {depth: null}
+// })
 
 
 interface Reader {

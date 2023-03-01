@@ -1,6 +1,4 @@
-const assert = (a: boolean, msg?: string) => {
-  if (!a) throw Error(msg ?? 'Assertion failed')
-}
+import { assert } from "./utils.js"
 
 const VARINT_ENC_CUTOFFS = [1 << 7]
 for (let i = 1; i < 7; i++) {

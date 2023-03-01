@@ -1,11 +1,15 @@
 import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, Primitive, StructOrEnum } from "./schema.js"
 
-import {Console} from 'node:console'
-const console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: null}
-})
+// import {Console} from 'node:console'
+// const console = new Console({
+//   stdout: process.stdout,
+//   stderr: process.stderr,
+//   inspectOptions: {depth: null}
+// })
+
+export const assert = (a: boolean, msg?: string) => {
+  if (!a) throw Error(msg ?? 'Assertion failed')
+}
 
 const mergeObjects = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn: (a: T, b: T) => T): Record<string, T> => {
   const result: Record<string, T> = {}

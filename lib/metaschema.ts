@@ -1,17 +1,17 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumSchema, EnumVariant, MapType, Primitive, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, enumOfStrings, extendSchema, fillSchemaDefaults, filterIter, Id, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
+import {EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
+import { Bool, fillSchemaDefaults, Id, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
-import * as assert from 'assert/strict'
-import * as fs from 'fs'
-import {Console} from 'node:console'
-const console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: null}
-})
+// import * as assert from 'assert/strict'
+// import * as fs from 'fs'
+// import {Console} from 'node:console'
+// const console = new Console({
+//   stdout: process.stdout,
+//   stderr: process.stderr,
+//   inspectOptions: {depth: null}
+// })
 
 const mapOf = (valType: SType, decodeForm: 'object' | 'map' | 'entryList' = 'object'): MapType => (
   {type: 'map', keyType: Id, valType, decodeForm}
@@ -127,25 +127,3 @@ export const metaSchema: Schema = {
     },
   }
 }
-
-
-
-// ************* TESTS ********
-
-const metameta = () => {
-  const bytes = toBinary(metaSchema, metaSchema)
-  console.log(bytes)
-  const remoteSchema = readData(metaSchema, bytes)
-  // console.log(remoteSchema)
-  fillSchemaDefaults(metaSchema, false)
-  // fillSchemaDefaults(rm, false)
-  fillSchemaDefaults(remoteSchema, false)
-  let rm = mergeSchemas(remoteSchema, metaSchema)
-
-  // console.log(metaSchema)
-  assert.deepEqual(metaSchema, rm)
-
-  fs.writeFileSync('metaschema.scb', bytes)
-}
-
-metameta()
