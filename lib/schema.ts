@@ -2,17 +2,20 @@
 /*
 
 - Numerics optionally decode to bigint
-- Make root type be a StructField? Or wrap optionals differently.
+- Make root type be Optional? Or wrap optionals differently?
+- Default value can be a constructor function
 
 - Mapping & read / write visitors
 - Promoting fields to lists?
 - Metaschema 2.0
 - Mixins?
+- Maps and lists should support encoding iterators
 
 */
 
 export type Primitive = 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
-  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 's8' | 's16' | 's32' | 's64' | 's128'
+  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
+  | 's8' | 's16' | 's32' | 's64' | 's128'
   // | {type: 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 's8' | 's16' | 's32' | 's64' | 's128', encoding: 'varint' | 'le'}
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
@@ -22,7 +25,7 @@ export interface MapType { // MapType rather than Map because Map is the name of
   keyType: Primitive
   valType: SType,
   // asEntryList?: true,
-  decodeForm?: 'object' | 'map' | 'entryList'
+  decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
 }
 export type SType = Primitive | Ref | List | MapType
 
