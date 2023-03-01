@@ -192,13 +192,13 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
   // First write the bit block.
   const writePass = (writeBit: ((b: boolean) => void) | null, writeThing: ((v: any, type: SType) => void) | null) => {
     for (const [k, field] of struct.fields.entries()) {
-      if (field.encoding === 'unused') continue
+      if (field.skip) continue
 
       const fieldName = field.renameFieldTo ?? k
       let v = val[fieldName]
 
       // console.log('field', k, 'inline', field.inline, 'encoding', field.encoding, 'hasValue', v != null, 'value', v)
-      if (field.encoding === 'optional') {
+      if (field.optional) {
         const hasValue = v != null
         writeBit?.(hasValue)
         if (!hasValue) continue

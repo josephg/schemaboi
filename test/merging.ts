@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict'
-import { EnumSchema, Schema, StructSchema } from '../lib/schema.js'
+import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
 import { enumOfStrings, enumOfStringsSimple, extendSchema, mergeSchemas, ref } from '../lib/utils.js'
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -60,9 +60,9 @@ describe('merging', () => {
           type: 'struct',
           // encodingOrder: ['age', 'name'],
           foreign: true,
-          fields: new Map([
-            ['name', {type: 'string', foreign: true, encoding: 'required'}],
-            ['age', {type: 'uint', foreign: true, encoding: 'required'}],
+          fields: new Map<string, StructField>([
+            ['name', {type: 'string', foreign: true, optional: false}],
+            ['age', {type: 'uint', foreign: true, optional: false}],
             // address: {type: 'string'},
           ])
         },
@@ -77,10 +77,10 @@ describe('merging', () => {
         Contact: {
           type: 'struct',
           // encodingOrder: [],
-          fields: new Map([
+          fields: new Map<string, StructField>([
             // name: {type: 'string'},
-            ['age', {type: 'uint', encoding: 'unused', renameFieldTo: 'yearsOld'}],
-            ['address', {type: 'string', encoding: 'unused', defaultValue: 'unknown location'}],
+            ['age', {type: 'uint', skip: true, renameFieldTo: 'yearsOld'}],
+            ['address', {type: 'string', skip: true, defaultValue: 'unknown location'}],
           ])
         },
         Color: enumOfStrings('Red', 'Bronze'),
@@ -134,17 +134,17 @@ describe('merging', () => {
 
     const merged = mergeSchemas(remote, local)
 
-    const exp: Schema = {
+    const expected: Schema = {
       id: 'Example',
       root: ref('Contact'),
       types: {
         Contact: {
           type: 'struct',
           foreign: false,
-          fields: new Map([
-            ['name', {type: 'string', foreign: false, defaultValue: 'Bruce', encoding: 'required', renameFieldTo: undefined}],
-            ['address', {type: 'string', foreign: true, encoding: 'required', defaultValue: undefined, renameFieldTo: undefined}],
-            ['phoneNo', {type: 'string', foreign: false, encoding: 'unused', defaultValue: undefined, renameFieldTo: undefined}],
+          fields: new Map<string, StructField>([
+            ['name', {type: 'string', foreign: false, skip: false, defaultValue: 'Bruce', optional: false, renameFieldTo: undefined}],
+            ['address', {type: 'string', foreign: true, skip: false, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
+            ['phoneNo', {type: 'string', foreign: false, skip: true, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
           ])
         },
 
@@ -153,14 +153,14 @@ describe('merging', () => {
           foreign: false,
           numericOnly: true,
           closed: false,
-          variants: new Map([
-            ['Red', {foreign: true, unused: false, associatedData: undefined}],
-            ['Green', {foreign: false, unused: false, associatedData: undefined}],
-            ['Blue', {foreign: false, unused: true, associatedData: undefined}],
+          variants: new Map<string, EnumVariant>([
+            ['Red', {foreign: true, skip: false, associatedData: undefined}],
+            ['Green', {foreign: false, skip: false, associatedData: undefined}],
+            ['Blue', {foreign: false, skip: true, associatedData: undefined}],
           ])
         }
       }
     }
-    assert.deepEqual(merged, exp)
+    assert.deepEqual(merged, expected)
   })
 })

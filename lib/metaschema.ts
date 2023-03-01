@@ -1,6 +1,6 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumSchema, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
+import {EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
 import { enumOfStrings, mergeSchemas, ref } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
@@ -21,9 +21,9 @@ const primitives = enumOfStrings('uint', 'sint', 'f32', 'f64', 'bool', 'string',
 
 const structSchema: StructSchema = {
   type: 'struct',
-  fields: new Map([
-    ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }],
-    ['fields', { type: mapOfEntries(ref('StructField')), encoding: 'required' }],
+  fields: new Map<string, StructField>([
+    ['foreign', { type: 'bool', defaultValue: true, skip: true }],
+    ['fields', { type: mapOfEntries(ref('StructField')), optional: false }],
   ]),
   // encode(e: StructSchema) {
   //   return {
@@ -49,11 +49,11 @@ export const metaSchema: Schema = {
     Schema: {
       type: 'struct',
       fields: new Map<string, StructField>([
-        ['id', { type: 'string', encoding: 'required' }],
+        ['id', { type: 'string', optional: false }],
 
         // Should this be optional or not?
-        ['root', { type: ref('SType'), encoding: 'optional' }],
-        ['types', { type: mapOf(ref('SchemaType')), encoding: 'required' }],
+        ['root', { type: ref('SType'), optional: true }],
+        ['types', { type: mapOf(ref('SchemaType')), optional: false }],
       ])
     },
 
@@ -64,28 +64,28 @@ export const metaSchema: Schema = {
       type: 'enum',
       closed: false,
       numericOnly: false,
-      variants: new Map([
+      variants: new Map<string, EnumVariant>([
         ...primitives.variants.entries(),
         ['ref', {
           associatedData: {
             type: 'struct',
-            fields: new Map([['key', { type: 'string', encoding: 'required' }]]),
+            fields: new Map<string, StructField>([['key', { type: 'string', optional: false }]]),
             // encodingOrder: ['key'],
           }
         }],
         ['list', {
           associatedData: {
             type: 'struct',
-            fields: new Map([['fieldType', { type: ref('SType'), encoding: 'required' }]]),
+            fields: new Map<string, StructField>([['fieldType', { type: ref('SType'), optional: false }]]),
             // encodingOrder: ['fieldType'],
           }
         }],
         ['map', {
           associatedData: {
             type: 'struct',
-            fields: new Map([
-              ['keyType', { type: ref('Primitive'), encoding: 'required' }],
-              ['valType', { type: ref('SType'), encoding: 'required' }],
+            fields: new Map<string, StructField>([
+              ['keyType', { type: ref('Primitive'), optional: false }],
+              ['valType', { type: ref('SType'), optional: false }],
             ]),
             // encodingOrder: ['keyType', 'valType'],
           }
@@ -98,15 +98,15 @@ export const metaSchema: Schema = {
       type: 'enum',
       closed: true, // TODO: ??? Am I sure about this?
       numericOnly: false,
-      variants: new Map([
+      variants: new Map<string, EnumVariant>([
         ['enum', {
           associatedData: {
             type: 'struct',
-            fields: new Map([
-              ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }], // Not stored.
-              ['closed', { type: 'bool', encoding: 'required' }],
-              ['numericOnly', { type: 'bool', encoding: 'required' }],
-              ['variants', { type: mapOfEntries(ref('EnumVariant')), encoding: 'required' }],
+            fields: new Map<string, StructField>([
+              ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
+              ['closed', { type: 'bool', optional: false }],
+              ['numericOnly', { type: 'bool', optional: false }],
+              ['variants', { type: mapOfEntries(ref('EnumVariant')), optional: false }],
               // encodingOrder: {
               //   type: listOf('string')
               // }
@@ -136,8 +136,8 @@ export const metaSchema: Schema = {
 
     EnumVariant: {
       type: 'struct',
-      fields: new Map([
-        ['associatedData', { type: ref('StructSchema'), encoding: 'required' }]
+      fields: new Map<string, StructField>([
+        ['associatedData', { type: ref('StructSchema'), optional: false }]
       ]),
       // encodingOrder: ['associatedData'],
     },
@@ -146,12 +146,12 @@ export const metaSchema: Schema = {
 
     StructField: {
       type: 'struct',
-      fields: new Map([
+      fields: new Map<string, StructField>([
         // defaultValue: { type: 'bool', defaultValue: false, optional: true }, // Not stored.
-        ['type', { type: ref('SType'), encoding: 'required' }],
-        ['optional', { type: 'bool', encoding: 'required' }],
-        ['foreign', { type: 'bool', defaultValue: true, encoding: 'unused' }], // Not stored.
-        ['renameFieldTo', { type: 'bool', defaultValue: false, encoding: 'unused' }], // Not stored.
+        ['type', { type: ref('SType'), optional: false }],
+        ['optional', { type: 'bool', optional: false }],
+        ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
+        ['renameFieldTo', { type: 'bool', defaultValue: false, skip: true }], // Not stored.
       ]),
       // encodingOrder: ['type', 'optional'],
     },

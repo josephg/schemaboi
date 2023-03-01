@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -97,7 +97,10 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
         // mappedToJS: localF?.foreign ?? true,
 
         // TODO: This makes sense for *reading* merged data, but it won't let us write.
-        encoding: remoteF?.encoding ?? 'unused',
+        skip: remoteF ? (remoteF.skip ?? false) : true,
+        optional: remoteF ? remoteF.optional : false, // If remoteF is null, this field doesn't matter.
+        // encoding: remoteF?.encoding ?? 'unused',
+
         renameFieldTo: localF?.renameFieldTo,
       }
     }),
@@ -131,11 +134,11 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     if (remoteV == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
     if (localV == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
 
-    result.variants.set(key, remoteV == null ? { foreign: false, ...localV, unused: true }
+    result.variants.set(key, remoteV == null ? { foreign: false, ...localV, skip: true }
       : localV == null ? { ...remoteV, foreign: true } // TODO: Recursively set foreign flag in associated data.
       : {
           foreign: localV.foreign ?? false,
-          unused: remoteV.unused ?? false,
+          skip: remoteV.skip ?? false,
           associatedData: remoteV.associatedData == null ? localV.associatedData
             : localV.associatedData == null ? remoteV.associatedData
             : mergeStructs(remoteV.associatedData, localV.associatedData)
@@ -193,9 +196,10 @@ function extendStruct(s: SimpleStructSchema): StructSchema {
     fields: objMapToMap(s.fields, f => ({
       type: f.type,
       defaultValue: f.defaultValue,
-      // optional: f.optional ?? true,
-      encoding: f.optional ? 'optional' : 'required',
       inline: f.type === 'bool' ? true : false, // Inline booleans.
+      optional: f.optional ?? false,
+      skip: false,
+      // encoding: f.optional ? 'optional' : 'required',
       renameFieldTo: f.renameFieldTo,
     })),
     // encodingOrder: Object.keys(s.fields),
@@ -208,9 +212,9 @@ function extendEnum(s: SimpleEnumSchema): EnumSchema {
     closed: s.closed ?? false,
     numericOnly: s.numericOnly,
     typeFieldOnParent: s.typeFieldOnParent,
-    variants: objMapToMap(s.variants, v => ({
+    variants: objMapToMap(s.variants, (v): EnumVariant => ({
       associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
-      unused: false,
+      skip: false,
     })),
     // encodingOrder: Object.keys(s.variants)
   }
@@ -353,7 +357,7 @@ export function *mapIter<A, B>(iter: IterableIterator<A>, mapFn: (v: A) => B): I
 export const enumVariantsInUse = (e: EnumSchema): string[] => (
   [...
     mapIter(
-      filterIter(e.variants.entries(), ([_k, v]) => !v.unused),
+      filterIter(e.variants.entries(), ([_k, v]) => !v.skip),
       ([k]) => k)
   ]
 )

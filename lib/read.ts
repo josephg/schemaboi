@@ -81,8 +81,8 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   // We read the data in 2 passes: First we read all the bits (booleans and optionals), then we read
   // the data itself.
   for (const [k, field] of struct.fields.entries()) {
-    let hasValue = (field.encoding === 'unused') ? false
-      : (field.encoding === 'optional') ? readNextBit()
+    let hasValue = field.skip ? false
+      : field.optional ? readNextBit()
       : true
 
     // console.log('read', k, hasValue)
@@ -97,11 +97,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 
   // Now read the data itself.
   for (const [k, field] of struct.fields.entries()) {
+    // We don't pass over skipped fields because we still need to fill them in with a specified default value.
     if (field.inline) continue // Inlined fields have already been read.
 
-    const hasValue = field.encoding !== 'unused'
-      && !missingFields.has(k)
-
+    const hasValue = !field.skip && !missingFields.has(k)
     const v = hasValue ? readThing(r, schema, field.type, result) : null
     storeVal(k, field, v)
   }

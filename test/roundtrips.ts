@@ -223,11 +223,11 @@ describe('roundtrips', () => {
           Bools: {
             type: 'struct',
             fields: new Map<string, StructField>([
-              ['a', {type: 'bool', encoding: 'required', inline: false}],
-              ['b', {type: 'bool', encoding: 'optional', inline: false}],
+              ['a', {type: 'bool', optional: false, inline: false}],
+              ['b', {type: 'bool', optional: true, inline: false}],
 
-              ['c', {type: 'bool', encoding: 'required', inline: true}],
-              ['d', {type: 'bool', encoding: 'optional', inline: true}],
+              ['c', {type: 'bool', optional: false, inline: true}],
+              ['d', {type: 'bool', optional: true, inline: true}],
             ])
           }
         }
@@ -251,10 +251,10 @@ describe('roundtrips', () => {
           Bools: {
             type: 'struct',
             fields: new Map<string, StructField>([
-              ['a', {type: 'bool', encoding: 'required', inline: false, defaultValue: true}],
-              ['b', {type: 'bool', encoding: 'required', inline: false, defaultValue: false}],
-              ['c', {type: 'bool', encoding: 'required', inline: true, defaultValue: true}],
-              ['d', {type: 'bool', encoding: 'required', inline: true, defaultValue: false}],
+              ['a', {type: 'bool', optional: false, inline: false, defaultValue: true}],
+              ['b', {type: 'bool', optional: false, inline: false, defaultValue: false}],
+              ['c', {type: 'bool', optional: false, inline: true, defaultValue: true}],
+              ['d', {type: 'bool', optional: false, inline: true, defaultValue: false}],
             ])
           }
         }

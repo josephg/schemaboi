@@ -42,14 +42,31 @@ export interface StructField {
    */
   defaultValue?: any,
 
-  // optional: boolean,
+  /**
+   * JS: Is this field unknown to the local application? Foreign fields are deserialized in
+   * {_external: {(fields)}}}
+   */
   foreign?: boolean,
   renameFieldTo?: string,
 
-  // Is this field be inlined into the bit fields? This is currently only supported for booleans.
+  // Is this field be inlined into the bit fields? Currently only supported for booleans.
   inline?: boolean,
 
-  encoding: 'unused' | 'optional' | 'required', // TODO: Maybe rename unused -> skipped?
+
+  /**
+   * Encoding. Skip serializing and deserializing this field. When deserializing the field
+   * will always be the default value (if specified) or null.
+   */
+  skip?: boolean,
+
+  /**
+   * Encoding. Does this field exist in all serialized objects of this type?
+   * Defaults to false - where the field must always be present.
+   */
+  optional?: boolean,
+
+
+  // encoding: 'unused' | 'optional' | 'required', // TODO: Maybe rename unused -> skipped?
   // used: boolean, // Or something. Encoding type: missing / optional / required ?
 
   // encodeMap?: MapEncoding<any>
@@ -71,6 +88,30 @@ export interface StructSchema {
   decode?: (obj: Record<string, any>) => any,
 }
 
+export interface EnumVariant {
+  // renameFieldTo?: string,
+  associatedData?: StructSchema,
+  foreign?: boolean, // JS encoding
+
+  /*
+   * We need to know the variant number when encoding or decoding, when the variant is
+   * known by the storage system.
+   *
+   * There's a few ways to do that. The "obvious" way would be to add an integer variant number here.
+   *
+   * But there's two problems with that:
+   *
+   * 1. It would introduce a way for the data to be invalid, and making invalid states impossible
+   *    to represent is generally good design.
+   * 2. An integer would take up extra space over the wire. (We could translate back and forth when
+   *    encoding and decoding, but I'd rather not do that if I can avoid it).
+   *
+   * Using a bool here lets us rely on the order in the Map (which is fixed as per
+   * the JS spec). Its harder to work with though; which is unfortunately not ideal.
+   */
+  skip?: boolean, // This enum was not known by the remote peer and will not show up in the bitstream
+}
+
 export interface EnumSchema {
   type: 'enum',
 
@@ -80,29 +121,7 @@ export interface EnumSchema {
   numericOnly: boolean,
   typeFieldOnParent?: string,
 
-  variants: Map<string, {
-    // renameFieldTo?: string,
-    associatedData?: StructSchema,
-    foreign?: boolean, // JS encoding
-
-    /*
-     * We need to know the variant number when encoding or decoding, when the variant is
-     * known by the storage system.
-     *
-     * There's a few ways to do that. The "obvious" way would be to add an integer variant number here.
-     *
-     * But there's two problems with that:
-     *
-     * 1. It would introduce a way for the data to be invalid, and making invalid states impossible
-     *    to represent is generally good design.
-     * 2. An integer would take up extra space over the wire. (We could translate back and forth when
-     *    encoding and decoding, but I'd rather not do that if I can avoid it).
-     *
-     * Using a bool here lets us rely on the order in the Map (which is fixed as per
-     * the JS spec). Its harder to work with though; which is unfortunately not ideal.
-     */
-    unused?: boolean, // This enum was not known by the remote peer and will not show up in the bitstream
-  }>,
+  variants: Map<string, EnumVariant>,
 
   // usedVariants?: string[], // TODO: Consider caching this.
 

@@ -1,7 +1,7 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { readData } from '../lib/read.js'
-import { Schema, SimpleSchema } from '../lib/schema.js'
+import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
 import { extendSchema, mergeSchemas, ref } from '../lib/utils.js'
 
 import {Console} from 'node:console'
@@ -20,9 +20,9 @@ describe('read', () => {
         Contact: {
           type: 'struct',
   
-          fields: new Map([
-            ['age', {type: 'uint', encoding: 'required'}],
-            ['name', {type: 'string', encoding: 'required'}],
+          fields: new Map<string, StructField>([
+            ['age', {type: 'uint'}],
+            ['name', {type: 'string'}],
             // address: {type: 'string'},
           ])
         }
@@ -43,9 +43,9 @@ describe('read', () => {
           type: 'struct',
           // encodingOrder: ['age', 'name'],
           foreign: true,
-          fields: new Map([
-            ['age', {type: 'uint', encoding: 'required'}],
-            ['name', {type: 'string', encoding: 'required'}],
+          fields: new Map<string, StructField>([
+            ['age', {type: 'uint'}],
+            ['name', {type: 'string'}],
             // address: {type: 'string'},
           ])
         }

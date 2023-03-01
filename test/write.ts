@@ -1,7 +1,7 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { toBinary } from '../lib/write.js'
-import { Schema, SimpleSchema } from '../lib/schema.js'
+import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
 import { extendSchema, mergeSchemas, ref } from '../lib/utils.js'
 
 describe('write', () => {
@@ -12,9 +12,9 @@ describe('write', () => {
       types: {
         Contact: {
           type: 'struct',
-          fields: new Map([
-            ['name', {type: 'string', encoding: 'optional'}],
-            ['age', {type: 'uint', encoding: 'required'}]
+          fields: new Map<string, StructField>([
+            ['name', {type: 'string', optional: true}],
+            ['age', {type: 'uint'}]
             // address: {type: 'string'},
           ])
         }
