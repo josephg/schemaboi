@@ -1,7 +1,7 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
 import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType, StructField } from "./schema.js"
-import { bytesUsed, varintDecode, zigzagDecode } from "./varint.js"
+import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
 import { ref, mergeSchemas, extendSchema, enumVariantsInUse } from "./utils.js"
 import {Console} from 'node:console'
 const console = new Console({
@@ -13,7 +13,8 @@ const console = new Console({
 
 interface Reader {
   pos: number,
-  data: DataView
+  data: DataView,
+  ids: string[],
 }
 
 function readVarInt(r: Reader): number {
@@ -227,7 +228,25 @@ function readPrimitive(r: Reader, type: Primitive): any {
       r.pos += len
       return buf
     }
-    case 'id': throw Error('Reader for IDs not implemented')
+    case 'id': {
+      // IDs are encoded as either a string or a number, depending on whether we've seen this ID before.
+      let [seenBefore, n] = trimBit(readVarInt(r))
+      if (seenBefore) {
+        // n stores the index of the string in the cached ID list.
+        if (n > r.ids.length) throw Error('Invalid ID: Length exceeds seen IDs')
+        return r.ids[n]
+      } else {
+        // The data model stores a string with length n.
+        const base = r.data.byteOffset + r.pos
+        const buf = r.data.buffer.slice(base, base+n)
+        r.pos += n
+        let val = textDecoder.decode(buf)
+        r.ids.push(val)
+        return val
+      }
+
+
+    }
     // default: throw Error('NYI readThing for ' + type)
     default:
       const expectNever: never = type
@@ -256,7 +275,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
         return result
       }
       case 'map': {
-        if (type.keyType !== 'string') throw Error('Cannot read map with non-string keys in javascript')
+        if (type.keyType !== 'string' && type.keyType !== 'id') throw Error('Cannot read map with non-string keys in javascript')
         const length = readVarInt(r)
         if (type.decodeForm == null || type.decodeForm == 'object') {
           const result: Record<string, any> = {}
@@ -287,7 +306,8 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
 export function readData(schema: Schema, data: Uint8Array): any {
   const reader: Reader = {
     pos: 0,
-    data: new DataView(data.buffer, data.byteOffset, data.byteLength)
+    data: new DataView(data.buffer, data.byteOffset, data.byteLength),
+    ids: []
   }
 
   return readThing(reader, schema, schema.root)

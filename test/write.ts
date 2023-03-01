@@ -2,7 +2,7 @@ import 'mocha'
 import * as assert from 'assert/strict'
 import { toBinary } from '../lib/write.js'
 import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
-import { extendSchema, mergeSchemas, ref } from '../lib/utils.js'
+import { extendSchema, ref } from '../lib/utils.js'
 
 describe('write', () => {
   it('simple test', () => {

@@ -110,7 +110,7 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
       writeVarInt(w, val)
       break
     }
-    
+
     case 'string': {
       writeString(w, val)
       break

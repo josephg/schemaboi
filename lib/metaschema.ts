@@ -5,6 +5,7 @@ import { enumOfStrings, filterIter, mergeSchemas, ref } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 import * as assert from 'assert/strict'
+import * as fs from 'fs'
 import {Console} from 'node:console'
 const console = new Console({
   stdout: process.stdout,
@@ -12,9 +13,8 @@ const console = new Console({
   inspectOptions: {depth: null}
 })
 
-// const mapOf = (valType: SType): MapType => ({type: 'map', keyType: 'string', valType})
 const mapOf = (valType: SType, decodeForm: 'object' | 'map' | 'entryList' = 'object'): MapType => (
-  {type: 'map', keyType: 'string', valType, decodeForm}
+  {type: 'map', keyType: 'id', valType, decodeForm}
 )
 // const listOf = (fieldType: SType): List => ({type: 'list', fieldType})
 
@@ -173,6 +173,8 @@ const metameta = () => {
   // const m = mergeSchemas(remoteSchema, metaSchema)
   // console.log(m)
 
+
+  fs.writeFileSync('metaschema.scb', bytes)
 }
 
 metameta()

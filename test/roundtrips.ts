@@ -102,37 +102,6 @@ describe('roundtrips', () => {
     testRoundTrip(schema, {name: 'seph'})
   })
 
-  it('works with all numeric types', () => {
-    const schema: SimpleSchema = {
-      id: 'Example',
-      root: ref('Contact'),
-      types: {
-        Contact: {
-          type: 'struct',
-          fields: {
-            u8: {type: 'u8'},
-            u16: {type: 'u16'},
-            u32: {type: 'u32'},
-            u64: {type: 'u64'},
-            u128: {type: 'u128'},
-
-            s8: {type: 's8'},
-            s16: {type: 's16'},
-            s32: {type: 's32'},
-            s64: {type: 's64'},
-            s128: {type: 's128'},
-          }
-        }
-      }
-    }
-
-    testRoundTrip(schema, {
-      u8: 0xff, u16: 0xffff, u32: 0xffffffff, u64: Number.MAX_SAFE_INTEGER, u128: Number.MAX_SAFE_INTEGER,
-      s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: 0, s128: 0,
-      // s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: Number.MIN_SAFE_INTEGER, s128: Number.MIN_SAFE_INTEGER,
-    })
-  })
-
   describe('enums', () => {
     it('simple enums', () => {
       // Numeric Enum
@@ -297,5 +266,58 @@ describe('roundtrips', () => {
       testRoundTripFullSchema(schema, {}, {a: true, b: false, c: true, d: false})
       testRoundTripFullSchema(schema, {a: false, d: true}, {a: false, b: false, c: true, d: true})
     })
+
+    it('works with all numeric types', () => {
+      const schema: SimpleSchema = {
+        id: 'Example',
+        root: ref('NumTest'),
+        types: {
+          NumTest: {
+            type: 'struct',
+            fields: {
+              u8: {type: 'u8'},
+              u16: {type: 'u16'},
+              u32: {type: 'u32'},
+              u64: {type: 'u64'},
+              u128: {type: 'u128'},
+
+              s8: {type: 's8'},
+              s16: {type: 's16'},
+              s32: {type: 's32'},
+              s64: {type: 's64'},
+              s128: {type: 's128'},
+            }
+          }
+        }
+      }
+
+      testRoundTrip(schema, {
+        u8: 0xff, u16: 0xffff, u32: 0xffffffff, u64: Number.MAX_SAFE_INTEGER, u128: Number.MAX_SAFE_INTEGER,
+        s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: 0, s128: 0,
+        // s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: Number.MIN_SAFE_INTEGER, s128: Number.MIN_SAFE_INTEGER,
+      })
+    })
+
+    it('ids', () => {
+      const schema: SimpleSchema = {
+        id: 'Example',
+        root: {type: 'list', fieldType: ref('IdTest')},
+        types: {
+          IdTest: {
+            type: 'struct',
+            fields: {
+              foo: {type: 'id'},
+              bar: {type: 'id'},
+            }
+          }
+        }
+      }
+
+      testRoundTrip(schema, [{foo: 'a', bar: 'a'}])
+      testRoundTrip(schema, [{foo: 'a', bar: 'b'}])
+      testRoundTrip(schema, [{foo: 'a', bar: 'b'}, {foo: 'a', bar: 'b'}])
+      testRoundTrip(schema, [{foo: 'a', bar: 'b'}, {foo: 'b', bar: 'a'}])
+    })
+
   })
 })
