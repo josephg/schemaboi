@@ -14,7 +14,7 @@ describe('write', () => {
           type: 'struct',
           fields: new Map<string, StructField>([
             ['name', {type: 'string', optional: true}],
-            ['age', {type: 'uint'}]
+            ['age', {type: 'u32'}]
             // address: {type: 'string'},
           ])
         }
@@ -37,7 +37,7 @@ describe('write', () => {
           type: 'struct',
           fields: {
             name: {type: 'string'},
-            age: {type: 'uint', optional: false},
+            age: {type: 'u32', optional: false},
             supercool: {type: 'bool', defaultValue: true},
             addresses: {type: {type: 'list', fieldType: 'string'}},
             // address: {type: 'string'},
@@ -57,9 +57,9 @@ describe('write', () => {
               associatedData: {
                 type: 'struct',
                 fields: {
-                  r: {type: 'uint'},
-                  g: {type: 'uint'},
-                  b: {type: 'uint'},
+                  r: {type: 'u32'},
+                  g: {type: 'u32'},
+                  b: {type: 'u32'},
                 }
               }
             }

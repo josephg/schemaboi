@@ -165,7 +165,7 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
 
   return {
     id: local.id,
-    root: local.root,
+    root: remote.root,
     types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructSchema | EnumSchema => {
       if (aa == null) return bb!
       if (bb == null) return {
@@ -250,6 +250,7 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
     case 'map':
       const bb = b as MapType
       return a.keyType === bb.keyType && typesShallowEq(a.valType, bb.valType)
+
     // Other cases (when added) will generate a type error.
   }
 }

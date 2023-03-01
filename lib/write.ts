@@ -57,11 +57,14 @@ const writeString = (w: WriteBuffer, str: string) => {
 function checkPrimitiveType(val: any, type: Primitive) {
   // console.log('val', val, 'type', type)
   switch (type) {
-    case 'uint': case 'sint': case 'f32': case 'f64':
+    case 'u8': case 'u16': case 'u32': case 'u64': case 'u128':
+    case 's8': case 's16': case 's32': case 's64': case 's128':
+    case 'f32': case 'f64':
       assert(typeof val === 'number'); break
     case 'bool': assert(typeof val === 'boolean'); break
     case 'string': case 'id': assert(typeof val === 'string'); break
-    default: throw Error(`case missing in checkType: ${type}`)
+    case 'binary': assert(val instanceof Uint8Array); break // TODO: Allow more binary types.
+    default: let unused: never = type; throw Error(`case missing in checkType: ${type}`)
   }
 }
 
@@ -71,8 +74,7 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
   switch (type) {
     case 'bool': {
       ensureCapacity(w, 1)
-      w.buffer[w.pos] = val
-      w.pos += 1
+      w.buffer[w.pos++] = val
       break
     }
 
@@ -96,12 +98,19 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
       break
     }
 
-    case 'sint': val = zigzagEncode(val) // And flow down.
-    case 'uint': {
-      writeVarInt(w, val)
+    case 'u8': case 's8': {
+      // Uint8Array will automatically store the 2s compliment of negative numbers
+      // when we assign like this.
+      w.buffer[w.pos++] = val
       break
     }
 
+    case 's16': case 's32': case 's64': case 's128': val = zigzagEncode(val) // And flow down.
+    case 'u16': case 'u32': case 'u64': case 'u128': {
+      writeVarInt(w, val)
+      break
+    }
+    
     case 'string': {
       writeString(w, val)
       break

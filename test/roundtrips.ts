@@ -133,9 +133,9 @@ describe('roundtrips', () => {
                 associatedData: {
                   type: 'struct',
                   fields: {
-                    r: {type: 'uint', optional: true},
-                    g: {type: 'uint', optional: true},
-                    b: {type: 'uint', optional: true},
+                    r: {type: 'u8', optional: true},
+                    g: {type: 'u8', optional: true},
+                    b: {type: 'u8', optional: true},
                   }
                 }
               }
@@ -169,9 +169,9 @@ describe('roundtrips', () => {
                 associatedData: {
                   type: 'struct',
                   fields: {
-                    r: {type: 'uint'},
-                    g: {type: 'uint'},
-                    b: {type: 'uint'},
+                    r: {type: 'u8'},
+                    g: {type: 'u8'},
+                    b: {type: 'u8'},
                   }
                 }
               }
@@ -201,7 +201,7 @@ describe('roundtrips', () => {
             type: 'struct',
             fields: {
               name: {type: 'string', optional: true},
-              age: {type: 'uint', optional: true},
+              age: {type: 'u32', optional: true},
               addresses: {type: {type: 'list', fieldType: 'string'}, optional: true}
               // address: {type: 'string'},
             }

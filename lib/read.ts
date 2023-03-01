@@ -196,8 +196,13 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
 
 function readPrimitive(r: Reader, type: Primitive): any {
   switch (type) {
-    case 'uint': return readVarInt(r)
-    case 'sint': return zigzagDecode(readVarInt(r))
+    case 'u8': return r.data.getUint8(r.pos++)
+    case 's8': return r.data.getInt8(r.pos++)
+    case 'u16': case 'u32': case 'u64': case 'u128':
+      return readVarInt(r)
+    case 's16': case 's32': case 's64': case 's128':
+      return zigzagDecode(readVarInt(r))
+
     case 'string': return readString(r)
     case 'f32': {
       const result = r.data.getFloat32(r.pos, true)

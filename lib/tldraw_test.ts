@@ -47,7 +47,7 @@ const tldrawTest = () => {
               opacity: {type: 'string', optional: false},
               color: {type: ref('Color'), optional: false},
               size: {type: ref('Size'), optional: false},
-              w: {type: 'uint', optional: false},
+              w: {type: 'u32', optional: false},
               text: {type: 'string', optional: false},
               font: {type: 'string', optional: false},
               align: {type: ref('Alignment'), optional: false},
@@ -71,7 +71,7 @@ const tldrawTest = () => {
               font: {type: 'string'}, // Or enumOfStrings(['draw'])
               text: {type: 'string', optional: false},
               align: {type: ref('Alignment'), optional: false},
-              growY: {type: 'uint', optional: false},
+              growY: {type: 'u32', optional: false},
             }
           }},
 

@@ -1,7 +1,7 @@
 
 /*
 
-- Numeric types -> u8/s8/etc + encoding
+- Make root type be a StructField? Or wrap optionals differently.
 
 - Mapping & read / write visitors
 - Promoting fields to lists?
@@ -9,7 +9,9 @@
 
 */
 
-export type Primitive = 'uint' | 'sint' | 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
+export type Primitive = 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
+  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 's8' | 's16' | 's32' | 's64' | 's128'
+  // | {type: 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 's8' | 's16' | 's32' | 's64' | 's128', encoding: 'varint' | 'le'}
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
 export type List = {type: 'list', fieldType: SType}

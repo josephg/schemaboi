@@ -21,7 +21,7 @@ describe('read', () => {
           type: 'struct',
   
           fields: new Map<string, StructField>([
-            ['age', {type: 'uint'}],
+            ['age', {type: 'u32'}],
             ['name', {type: 'string'}],
             // address: {type: 'string'},
           ])
@@ -44,7 +44,7 @@ describe('read', () => {
           // encodingOrder: ['age', 'name'],
           foreign: true,
           fields: new Map<string, StructField>([
-            ['age', {type: 'uint'}],
+            ['age', {type: 'u32'}],
             ['name', {type: 'string'}],
             // address: {type: 'string'},
           ])
@@ -60,7 +60,7 @@ describe('read', () => {
           type: 'struct',
           fields: {
             // name: {type: 'string'},
-            age: {type: 'uint', optional: true, renameFieldTo: 'yearsOld'},
+            age: {type: 'u32', optional: true, renameFieldTo: 'yearsOld'},
             address: {type: 'string', optional: true, defaultValue: 'unknown location'},
           }
         }

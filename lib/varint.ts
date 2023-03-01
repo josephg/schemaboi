@@ -1,7 +1,5 @@
 const assert = (a: boolean, msg?: string) => {
-  if (!a) {
-    throw Error(msg ?? 'Assertion failed')
-  }
+  if (!a) throw Error(msg ?? 'Assertion failed')
 }
 
 const VARINT_ENC_CUTOFFS = [1 << 7]

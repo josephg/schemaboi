@@ -62,7 +62,7 @@ describe('merging', () => {
           foreign: true,
           fields: new Map<string, StructField>([
             ['name', {type: 'string', foreign: true, optional: false}],
-            ['age', {type: 'uint', foreign: true, optional: false}],
+            ['age', {type: 'u32', foreign: true, optional: false}],
             // address: {type: 'string'},
           ])
         },
@@ -79,7 +79,7 @@ describe('merging', () => {
           // encodingOrder: [],
           fields: new Map<string, StructField>([
             // name: {type: 'string'},
-            ['age', {type: 'uint', skip: true, renameFieldTo: 'yearsOld'}],
+            ['age', {type: 'u32', skip: true, renameFieldTo: 'yearsOld'}],
             ['address', {type: 'string', skip: true, defaultValue: 'unknown location'}],
           ])
         },
