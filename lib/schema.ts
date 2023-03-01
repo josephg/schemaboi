@@ -1,11 +1,13 @@
 
 /*
 
+- Numerics optionally decode to bigint
 - Make root type be a StructField? Or wrap optionals differently.
 
 - Mapping & read / write visitors
 - Promoting fields to lists?
 - Metaschema 2.0
+- Mixins?
 
 */
 

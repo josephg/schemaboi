@@ -88,7 +88,7 @@ export function zigzagEncode(val: number): number {
 }
 
 export function zigzagDecode(val: number): number {
-  return (val % 1) === 1
+  return (val % 2) === 1
     ? -Math.floor(val / 2)
     : Math.floor(val / 2)
 }

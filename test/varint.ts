@@ -18,6 +18,7 @@ const roundtripUint = (n: number) => {
 
   if (n < Number.MAX_SAFE_INTEGER / 2) {
     roundtripSint(n)
+    if (n !== 0) roundtripSint(-n)
   }
 }
 
@@ -28,6 +29,21 @@ describe('varint encoding', () => {
     roundtripUint(100)
     roundtripUint(1000000)
     roundtripUint(Number.MAX_SAFE_INTEGER)
+  })
+
+  it('zigzag encodes correctly', () => {
+    const checkZigZag = (n: number) => {
+      let zz = zigzagEncode(n)
+      assert(zz >= 0)
+      let out = zigzagDecode(zz)
+      assert.equal(n, out)
+    }
+
+    checkZigZag(0)
+    checkZigZag(1)
+    checkZigZag(-1)
+    checkZigZag(10000)
+    checkZigZag(-10000)
   })
 
   it('correctly handles conformance tests from varint_tests.txt', () => {
