@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict'
 import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
-import { enumOfStrings, enumOfStringsSimple, extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
+import { enumOfStrings, enumOfStringsSimple, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -142,9 +142,9 @@ describe('merging', () => {
           type: 'struct',
           foreign: false,
           fields: new Map<string, StructField>([
-            ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false, renameFieldTo: undefined}],
-            ['address', {type: String, foreign: true, skip: false, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
-            ['phoneNo', {type: String, foreign: false, skip: true, defaultValue: undefined, optional: false, renameFieldTo: undefined}],
+            ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false}],
+            ['address', {type: String, foreign: true, skip: false, optional: false}],
+            ['phoneNo', {type: String, foreign: false, skip: true, optional: false}],
           ])
         },
 
@@ -154,13 +154,15 @@ describe('merging', () => {
           numericOnly: true,
           closed: false,
           variants: new Map<string, EnumVariant>([
-            ['Red', {foreign: true, skip: false, associatedData: undefined}],
-            ['Green', {foreign: false, skip: false, associatedData: undefined}],
-            ['Blue', {foreign: false, skip: true, associatedData: undefined}],
+            ['Red', {foreign: true, skip: false}],
+            ['Green', {foreign: false, skip: false}],
+            ['Blue', {foreign: false, skip: true}],
           ])
         }
       }
     }
+    fillSchemaDefaults(expected, false)
+
     assert.deepEqual(merged, expected)
   })
 })

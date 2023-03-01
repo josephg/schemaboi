@@ -53,7 +53,7 @@ describe('roundtrips', () => {
     it('works with maps', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: prim('f64')},
+        root: {type: 'map', keyType: String, valType: prim('f64')},
         types: {}
       }
     
@@ -63,7 +63,7 @@ describe('roundtrips', () => {
     it('works with maps using entry list decoding form', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: prim('f64'), decodeForm: 'entryList'},
+        root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'entryList'},
         types: {}
       }
 
@@ -75,7 +75,7 @@ describe('roundtrips', () => {
     it('works with maps using map decoding form', () => {
       const schema: SimpleSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: prim('f64'), decodeForm: 'map'},
+        root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'map'},
         types: {}
       }
     

@@ -1,6 +1,6 @@
 import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
 import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
-import { enumVariantsInUse, extendSchema, ref } from "./utils.js"
+import { enumVariantsInUse, extendSchema, isPrimitive, ref } from "./utils.js"
 
 import assert from 'assert/strict'
 import {Console} from 'node:console'
@@ -220,7 +220,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
       // TODO: Also write bits for enums with 2 in-use fields!
       if (field.inline) {
         // console.log('write inlined', k)
-        if (field.type.type === 'primitive' && field.type.inner === 'bool') writeBit?.(v)
+        if (field.type.type === 'bool') writeBit?.(v)
         else throw Error('Inlining non-boolean fields not supported')
       } else {
         writeThing?.(v, field.type)
@@ -281,11 +281,9 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
 
 function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, parent?: any) {
   switch (type.type) {
-    case 'primitive':
-      encodePrimitive(w, val, type.inner)
-      break
     case 'ref': {
       const innerType = schema.types[type.key]
+      if (innerType == null) throw Error(`Schema contains a ref to missing type '${type.key}'`)
       switch (innerType.type) {
         case 'struct':
           // console.log('encode ref', type.key)
@@ -316,14 +314,15 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
         : Object.entries(val)
       writeVarInt(w, entries.length)
       for (const [k, v] of entries) {
-        encodePrimitive(w, k, type.keyType)
+        encodeThing(w, schema, k, type.keyType)
         encodeThing(w, schema, v, type.valType)
       }
       break
     }
     default:
-      const exhaustiveCheck: never = type;
-      throw new Error('unhandled case');
+      if (!isPrimitive(type.type)) throw Error(`Unknown type '${type.type}' while encoding`)
+      encodePrimitive(w, val, type.type)
+      break
   }
 }
 

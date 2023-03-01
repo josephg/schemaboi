@@ -7,17 +7,16 @@ export type Ref = {type: 'ref', key: string} // Reference to another type in the
 export type List = {type: 'list', fieldType: SType}
 export interface MapType { // MapType rather than Map because Map is the name of a builtin type.
   type: 'map',
-  keyType: Primitive
+  keyType: SType, // TODO: Consider making key type default to 'string' here in JS land.
   valType: SType,
   // asEntryList?: true,
   decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
 }
 export interface WrappedPrimitive {
-  type: 'primitive',
-  inner: Primitive
+  type: Primitive,
 }
 
-export type SType = Ref | List | MapType | WrappedPrimitive
+export type SType = WrappedPrimitive | Ref | List | MapType
 
 // export type MapEncoding<T> = {
 //   fromEntries: (entries: [any, any][]) => T,

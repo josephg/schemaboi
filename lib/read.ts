@@ -2,7 +2,7 @@
 
 import { EnumObject, EnumSchema, Primitive, SimpleSchema, Schema, StructSchema, SType, StructField } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { ref, mergeSchemas, extendSchema, enumVariantsInUse } from "./utils.js"
+import { ref, mergeSchemas, extendSchema, enumVariantsInUse, isPrimitive } from "./utils.js"
 import {Console} from 'node:console'
 const console = new Console({
   stdout: process.stdout,
@@ -91,7 +91,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 
     // TODO: Consider also encoding enums with 2 in-use fields like this!
     if (field.inline) {
-      if (field.type.type === 'primitive' && field.type.inner === 'bool') storeVal(k, field, hasValue ? readNextBit() : null)
+      if (field.type.type === 'bool') storeVal(k, field, hasValue ? readNextBit() : null)
       else throw Error('Cannot read inlined field of non-bool type')
     }
   }
@@ -257,7 +257,6 @@ function readPrimitive(r: Reader, type: Primitive): any {
 
 function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
   switch (type.type) {
-    case 'primitive': return readPrimitive(r, type.inner)
     case 'ref': {
       const inner = schema.types[type.key]
       if (inner.type === 'struct') return readStruct(r, schema, inner)
@@ -275,12 +274,12 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       return result
     }
     case 'map': {
-      if (type.keyType !== 'string' && type.keyType !== 'id') throw Error('Cannot read map with non-string keys in javascript')
       const length = readVarInt(r)
       if (type.decodeForm == null || type.decodeForm == 'object') {
+        if (type.keyType.type !== 'string' && type.keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
         const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, type.keyType)
+          const k = readPrimitive(r, type.keyType.type)
           const v = readThing(r, schema, type.valType)
           result[k] = v
         }
@@ -288,7 +287,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       } else {
         const entries: [number | string | boolean, any][] = []
         for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, type.keyType)
+          const k = readThing(r, schema, type.keyType)
           const v = readThing(r, schema, type.valType)
           entries.push([k, v])
         }
@@ -298,7 +297,8 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       }
     }
     default:
-      const expectNever: never = type
+      if (isPrimitive(type.type)) return readPrimitive(r, type.type)
+      else throw Error(`Attempt to read unknown type: ${type.type}`)
   }
 }
 

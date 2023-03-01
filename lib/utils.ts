@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, WrappedPrimitive, Primitive, StructOrEnum } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, Primitive, StructOrEnum } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -88,7 +88,7 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
     fields: mergeMapsAll(remote.fields, local.fields, (remoteF, localF): StructField => {
       // Check the fields are compatible.
       if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
-        throw Error('Incompatible types in struct field')
+        throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
       }
 
       return {
@@ -96,11 +96,11 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
         defaultValue: localF?.defaultValue,
         foreign: localF ? (localF.foreign ?? false) : true,
         renameFieldTo: localF?.renameFieldTo,
-        inline: remoteF?.inline ?? localF!.inline ?? false,
+        inline: remoteF ? (remoteF.inline ?? false) : (localF!.inline ?? false),
 
         // TODO: This makes sense for *reading* merged data, but it won't let us write.
         skip: remoteF ? (remoteF.skip ?? false) : true,
-        optional: remoteF ? remoteF.optional : false, // If remoteF is null, this field doesn't matter.
+        optional: remoteF ? remoteF.optional : (localF!.optional ?? false), // If remoteF is null, this field doesn't matter.
         // encoding: remoteF?.encoding ?? 'unused',
 
       }
@@ -197,7 +197,7 @@ function extendStruct(s: SimpleStructSchema): StructSchema & {type: 'struct'} {
     fields: objMapToMap(s.fields, f => ({
       type: f.type,
       defaultValue: f.defaultValue,
-      inline: f.type.type === 'primitive' && f.type.inner === 'bool' ? true : false, // Inline booleans.
+      inline: f.type.type === 'bool' ? true : false, // Inline booleans.
       optional: f.optional ?? false,
       skip: false,
       // encoding: f.optional ? 'optional' : 'required',
@@ -242,15 +242,14 @@ export const isRef = (x: SType): x is {type: 'ref', key: string} => (
 export const typesShallowEq = (a: SType, b: SType): boolean => {
   if (a.type !== b.type) return false
   switch (a.type) {
-    case 'primitive':
-      return a.inner === (b as WrappedPrimitive).inner
     case 'ref':
       return a.key === (b as Ref).key
     case 'list':
       return typesShallowEq(a.fieldType, (b as List).fieldType)
     case 'map':
       const bb = b as MapType
-      return a.keyType === bb.keyType && typesShallowEq(a.valType, bb.valType)
+      return typesShallowEq(a.keyType, bb.keyType) && typesShallowEq(a.valType, bb.valType)
+    default: return true // They'd better be primitives!
 
     // Other cases (when added) will generate a type error.
   }
@@ -383,7 +382,7 @@ const fillStructDefaults = (s: StructSchema, foreign: boolean) => {
   s.decode ??= undefined
   for (const field of s.fields.values()) {
     fillSTypeDefaults(field.type)
-    field.defaultValue ??= null // ??
+    field.defaultValue ??= undefined // ??
     field.foreign ??= foreign
     field.renameFieldTo ??= undefined // ???
     field.inline ??= false
@@ -420,7 +419,20 @@ export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
   return s
 }
 
-export const prim = (inner: Primitive): SType => ({type: 'primitive', inner})
+
+export const primitiveTypes: Primitive[] = [
+  'bool',
+  'u8', 'u16', 'u32', 'u64', 'u128',
+  's8', 's16', 's32', 's64', 's128',
+  'f32', 'f64',
+  'string', 'binary', 'id',
+]
+
+export const isPrimitive = (s: string): s is Primitive => (
+  (primitiveTypes as string[]).indexOf(s) >= 0
+)
+
+export const prim = (inner: Primitive): SType => ({type: inner})
 export const String: SType = prim('string')
 export const Id: SType = prim('id')
 export const Bool: SType = prim('bool')
