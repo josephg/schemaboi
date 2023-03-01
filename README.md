@@ -2,13 +2,33 @@
 
 # Schemaboi: A binary format with schema evolution
 
-Schemaboi is an efficient serialization format (like JSON or protobuf) thats designed for applications with schemas that change over time. (Which is, basically every application).
+Schemaboi is an efficient binary serialization format (like protobuf) thats designed for applications with schemas that change over time. (Which is, basically every application).
 
-Schemaboi has 3 big advantages over other existing formats:
+Schemaboi has many of the same goals as Ink & Switch's [Project Cambria](https://www.inkandswitch.com/cambria/), to enable applications to interoperate despite their schemas changing over time.
 
-1. **Schema Evolution:** Data stored with schemaboi can be both forwards- *and backwards-* compatible with other application software. Application authors can add new fields to the schema at will. Their new data fields will be preserved by other applications, without interfering with how those apps work. Schemaboi is designed for applications that should still work without modification in 100 years from now.
-2. **Encoding efficiency:** Unlike JSON, schemaboi has an extremely compact packed binary format. Data takes even fewer bytes over the wire than other binary formats like protobuf.
-3. **Self describing:** Data stored in schemaboi is self describing. Like JSON or msgpack, schemaboi data doesn't need a special out-of-band schema file in order to interpret the data. You can print any schemaboi file out as raw JSON. (Though you need our schemaboi CLI tool to do so). And you don't need a special compilation step to do code generation in order to use schemaboi.
+Imagine two applications, both editing shared blog posts. One application wants to add a new `featured: bool` field to the data schema, marking featured blog posts.
+
+- Using JSON, the schema can change in any way, but ad-hoc fields lead to messy, ad-hoc code that becomes increasingly buggy and messy over time.
+- Using protobuf (or something similar), both application developers need to coordinate to decide which fields get added. This coordination overhead slows down development work - data formats are punished for their popularity!
+
+Schemaboi solves this problem!
+
+Every data format is described by a *Schema*. The schema describes 3 pieces of information:
+
+1. **Encoding:** How the data is stored in binary form (on disk or over the network)
+2. **Core Schema:** What types and fields are available
+3. **Local Mapping:** How those fields map into your programming language (eg Javascript or Rust)
+
+Data files with schemaboi data **embed the stored schema** (well, the encoding and core schema). Your application embeds the schema it expects (part 2 and 3). When a SB file is loaded, the stored data is mapped to your local types.
+
+- Anything your application understands is validated and kept.
+- Anything your application doesn't understand is stored separately, and re-encoded when the data is saved back to disk. (So we don't lose anything!)
+
+This enables:
+
+- **Schema Evolution:** Data stored with schemaboi can be both forwards- *and backwards-* compatible with other application software. Application authors can add new fields to the schema at will. (Or remove (ignore) old ones). Any new data fields will be preserved by other applications, without interfering with how those apps work. Schemaboi is designed for applications that should still work without modification in 100 years from now.
+2. **Encoding efficiency:** Unlike JSON, schemaboi has an extremely compact packed binary format. Data takes even fewer bytes over the wire than other binary formats like protobuf. (Though we do need to store the schema - but its usually small!)
+3. **Self describing:** Data stored in schemaboi is self describing. Like JSON or msgpack, schemaboi data doesn't need a special out-of-band schema file in order to interpret the data. You can print any schemaboi file out as raw JSON, or edit it directly. (Though you will need our schemaboi CLI tool to do so). There is no special compilation step to use schemaboi.
 
 Schemaboi also supports more data types than JSON, like opaque binary blobs and parametric enums, as found in modern languages like Swift, Rust, Typescript and Haskell. (Eg `enum Shape { Circle(centre, radius), Square(x, y, sidelength) }`).
 
@@ -27,41 +47,18 @@ This makes schemaboi less efficient for very small data sets. (Though the schema
 This is a departure from formats like JSON and msgpack, which have the schema information (field names) repeated and interleaved throughout the data:
 
 ```
-[data+schema, data+schema, data+schema]
+[field names + data, field names + data, field names + data]
 ```
 
 Or protobuf and capnproto, which split the data and the schema into two separate data chunks:
 
 ```
+myschema.proto:
+[schema]
+
+myfile.data:
 [data]
 ```
-
-And in a separate schema file that needs to be distributed out-of-band and compiled into each program:
-
-```
-[schema]
-```
-
-
-## Schema evolution
-
-Schemaboi was written with [local first software](https://www.inkandswitch.com/local-first/) in mind. It was inspired in part by [Cambria](https://www.inkandswitch.com/cambria/).
-
-In local first software, we want *multiple applications* (made by different authors at different times) to be able to interact with the *same shared data*.
-
-We need to be able to add fields to the data model in one application, use those fields in another application while still maintaining compatibility with applications that do not understand those fields. Old, simple software should be able to read and modify data without accidentally deleting fields that newer applications rely on.
-
-JSON does a pretty good job of this, when applications follow a policy where they:
-
-- Only add new fields to the schema, and never remove them
-- Preserve any fields that the application does not understand
-
-Schemaboi improves on this. We:
-
-- Formalizes this behaviour (so applications just naturally work this way without needing to do any extra work)
-- Allows unused fields to be removed, without deleting any actual data. New files don't store any removed fields, and pay no cost for their historical legacy.
-
-However, we don't support some of the fancier features of cambria, like lenses which convert a single field into a list. (TODO: Might be worth considering though!)
 
 
 ## What is a schema?
@@ -79,7 +76,7 @@ Every schemaboi file stores the set of data types and the encoding information. 
 
 The data model supports the following types:
 
-- Primitive types (bool, uint, sint, float32, float64, string, byte array, ID)
+- Primitive types (bool, u8-u128, s8-s128, float32, float64, string, byte array, ID)
 - Lists
 - Maps (list of Primitive => AnyType)
 - Structs (A set of fields)
@@ -90,7 +87,7 @@ The data model supports the following types:
 
 Booleans are either `true` or `false`.
 
-Uint and sint represent either unsigned or signed integers. Integers are encoded using a length-prefixed varint encoding, so small integers take up fewer bytes than larger integers. Variable length integer types can store up to 128 bit integers. (TODO: Consider making a bigint type?)
+The u8, u16, u32, u64, u128 types represent unsigned integer types. And their friends s8, s16, s32, s64, s128 signed integers. u8 and s8 are stored using natural 1-byte encoding. The other integer types are encoded using a length-prefixed varint encoding, so small integers take up fewer bytes than larger integers. Variable length integer types can store up to 128 bit integers. (TODO: Consider making a bigint type?)
 
 Float32 and float64 store IEEE floating point numbers. We store the raw IEEE float bytes in the file. The bit pattern for NaN numbers may not be preserved by all formats.
 
@@ -169,9 +166,9 @@ File formats inevitably change over time. This is expected and normal; and any s
 
 For schemaboi, the data model is allowed to change in the following ways:
 
-1. New fields can be added to structs
+1. New fields can be added or removed from structs
 2. New enum variants can be added to non-exhaustive enums
-3. Enum variants can have associated data added
+3. Enum variants can have associated data added or removed
 
 In the future I may allow other schema changes; but for now this is it.
 
