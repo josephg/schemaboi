@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, WrappedPrimitive, Primitive } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, WrappedPrimitive, Primitive, StructOrEnum } from "./schema.js"
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -81,8 +81,10 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
   // console.log('merge', a, b)
   // Merge them.
   return {
-    type: 'struct',
     foreign: local.foreign ?? false,
+    encode: local.encode,
+    decode: local.decode,
+
     fields: mergeMapsAll(remote.fields, local.fields, (remoteF, localF): StructField => {
       // Check the fields are compatible.
       if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
@@ -91,17 +93,16 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
 
       return {
         type: localF?.type ?? remoteF!.type,
-        foreign: localF ? (localF.foreign ?? false) : true,
         defaultValue: localF?.defaultValue,
-        // optional: remoteF?.optional ?? true, // A field being optional is part of the encoding.
-        // mappedToJS: localF?.foreign ?? true,
+        foreign: localF ? (localF.foreign ?? false) : true,
+        renameFieldTo: localF?.renameFieldTo,
+        inline: remoteF?.inline ?? localF!.inline ?? false,
 
         // TODO: This makes sense for *reading* merged data, but it won't let us write.
         skip: remoteF ? (remoteF.skip ?? false) : true,
         optional: remoteF ? remoteF.optional : false, // If remoteF is null, this field doesn't matter.
         // encoding: remoteF?.encoding ?? 'unused',
 
-        renameFieldTo: localF?.renameFieldTo,
       }
     }),
     // encodingOrder: remote.encodingOrder,
@@ -120,11 +121,10 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
   const result: EnumSchema = {
     type: 'enum',
     foreign: local.foreign ?? false,
-    numericOnly: local.numericOnly,
-    // I think this behaviour is correct...
     closed: remote.closed || local.closed,
+    numericOnly: local.numericOnly,
+    typeFieldOnParent: local.typeFieldOnParent,
     variants: new Map,
-    // encodingOrder: remote.encodingOrder,
   }
 
   for (const key of mergedMapKeys(remote.variants, local.variants)) {
@@ -166,7 +166,7 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   return {
     id: local.id,
     root: remote.root,
-    types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructSchema | EnumSchema => {
+    types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructOrEnum => {
       if (aa == null) return bb!
       if (bb == null) return {
         ...aa,
@@ -176,7 +176,8 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
       if (aa.type !== bb.type) throw Error(`Cannot merge ${aa.type} with ${bb.type}`) // enums and structs can't mix.
 
       if (aa.type === 'struct') {
-        return mergeStructs(aa, bb as StructSchema)
+        // Gross allocation.
+        return { type: 'struct', ... mergeStructs(aa, bb as StructSchema) }
         // return structEq(aa, bb as StructSchema)
         //   ? aa
         //   : mergeStructs(aa, bb as StructSchema)
@@ -190,7 +191,7 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   }
 }
 
-function extendStruct(s: SimpleStructSchema): StructSchema {
+function extendStruct(s: SimpleStructSchema): StructSchema & {type: 'struct'} {
   return {
     type: 'struct',
     fields: objMapToMap(s.fields, f => ({
@@ -376,12 +377,14 @@ const fillSTypeDefaults = (t: SType) => {
   }
 }
 
-const fillStructDefaults = (s: StructSchema) => {
-  s.foreign ??= false
+const fillStructDefaults = (s: StructSchema, foreign: boolean) => {
+  s.foreign ??= foreign
+  s.encode ??= undefined
+  s.decode ??= undefined
   for (const field of s.fields.values()) {
     fillSTypeDefaults(field.type)
     field.defaultValue ??= null // ??
-    field.foreign ??= false
+    field.foreign ??= foreign
     field.renameFieldTo ??= undefined // ???
     field.inline ??= false
     field.skip ??= false
@@ -389,28 +392,28 @@ const fillStructDefaults = (s: StructSchema) => {
   }
 }
 
-const fillEnumDefaults = (s: EnumSchema) => {
-  s.foreign ??= false
+const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
+  s.foreign ??= foreign
   s.typeFieldOnParent ??= undefined
   for (const variant of s.variants.values()) {
     variant.associatedData ??= undefined
-    variant.foreign ??= false
+    variant.foreign ??= foreign
     variant.skip ??= false
 
     if (variant.associatedData) {
-      fillStructDefaults(variant.associatedData)
+      fillStructDefaults(variant.associatedData, foreign)
     }
   }
 }
 
 /** Modifies the schema in-place! */
-export function fillSchemaDefaults(s: Schema): Schema {
+export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
   fillSTypeDefaults(s.root)
   for (const k in s.types) {
     const t = s.types[k]
     switch (t.type) {
-      case 'enum': fillEnumDefaults(t); break
-      case 'struct': fillStructDefaults(t); break
+      case 'enum': fillEnumDefaults(t, foreign); break
+      case 'struct': fillStructDefaults(t, foreign); break
       default: const x: never = t
     }
   }

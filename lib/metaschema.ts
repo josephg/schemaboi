@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
 import {EnumSchema, EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, enumOfStrings, fillSchemaDefaults, filterIter, mergeSchemas, ref, String } from './utils.js'
+import { Bool, enumOfStrings, extendSchema, fillSchemaDefaults, filterIter, mergeSchemas, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 import * as assert from 'assert/strict'
@@ -20,11 +20,10 @@ const mapOf = (valType: SType, decodeForm: 'object' | 'map' | 'entryList' = 'obj
 
 
 const structSchema: StructSchema = {
-  type: 'struct',
   fields: new Map<string, StructField>([
     // ['type', {type: 'string', defaultValue: 'struct', skip: true}],
 
-    ['foreign', { type: Bool, defaultValue: false, skip: true }],
+    ['foreign', { type: Bool, defaultValue: true, skip: true }],
     ['fields', { type: mapOf(ref('StructField'), 'map'), optional: false }],
   ]),
   encode(obj: StructSchema) {
@@ -82,28 +81,24 @@ export const metaSchema: Schema = {
       variants: new Map<string, EnumVariant>([
         ['primitive', {
           associatedData: {
-            type: 'struct',
             fields: new Map<string, StructField>([['inner', { type: ref('Primitive') }]]),
             // encodingOrder: ['key'],
           }
         }],
         ['ref', {
           associatedData: {
-            type: 'struct',
             fields: new Map<string, StructField>([['key', { type: String }]]),
             // encodingOrder: ['key'],
           }
         }],
         ['list', {
           associatedData: {
-            type: 'struct',
             fields: new Map<string, StructField>([['fieldType', { type: ref('SType') }]]),
             // encodingOrder: ['fieldType'],
           }
         }],
         ['map', {
           associatedData: {
-            type: 'struct',
             fields: new Map<string, StructField>([
               ['keyType', { type: ref('Primitive') }],
               ['valType', { type: ref('SType') }],
@@ -124,10 +119,8 @@ export const metaSchema: Schema = {
       variants: new Map<string, EnumVariant>([
         ['enum', {
           associatedData: {
-            type: 'struct',
             fields: new Map<string, StructField>([
-              // ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
-              ['foreign', { type: Bool, defaultValue: false, skip: true }], // Not stored.
+              ['foreign', { type: Bool, defaultValue: true, skip: true }], // Not stored.
               ['closed', { type: Bool, inline: true }],
               ['numericOnly', { type: Bool, inline: true }],
               ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
@@ -147,7 +140,7 @@ export const metaSchema: Schema = {
       ]),
     },
 
-    StructSchema: structSchema,
+    StructSchema: { type: 'struct', ...structSchema },
 
     StructField: {
       type: 'struct',
@@ -157,9 +150,9 @@ export const metaSchema: Schema = {
         // ['defaultValue', {type: 'string', skip: true, optional: true}], // Type doesn't matter.
         // ['foreign', { type: 'bool', skip: true, defaultValue: true }], // Not stored.
         // ['renameFieldTo', { type: 'string', optional: true, skip: true }], // Not stored.
-        // ['inline', { type: 'bool', skip: true, optional: true }],
         // ['skip', { type: 'bool', skip: true, defaultValue: false, inline: true }],
 
+        ['inline', { type: Bool, inline: true, optional: true }],
         ['optional', { type: Bool, defaultValue: false, inline: true}],
       ]),
     },
@@ -175,20 +168,12 @@ const metameta = () => {
   console.log(bytes)
   const remoteSchema = readData(metaSchema, bytes)
   // console.log(remoteSchema)
-  fillSchemaDefaults(metaSchema)
-  fillSchemaDefaults(remoteSchema)
+  let rm = mergeSchemas(remoteSchema, metaSchema)
+  fillSchemaDefaults(metaSchema, false)
+  fillSchemaDefaults(rm, false)
 
   // console.log(metaSchema)
-  // assert.deepEqual(metaSchema.types.SType, remoteSchema.types.SType)
-  console.log((metaSchema.types.SType as EnumSchema))
-  console.log((remoteSchema.types.SType as EnumSchema))
-  // console.log((metaSchema.types.SType as EnumSchema).variants.get('map'))
-  // console.log((remoteSchema.types.SType as EnumSchema).variants.get('map'))
-
-  // assert.deepEqual(remoteSchema, metaSchema)
-  // const m = mergeSchemas(remoteSchema, metaSchema)
-  // console.log(m)
-
+  assert.deepEqual(metaSchema, rm)
 
   fs.writeFileSync('metaschema.scb', bytes)
 }

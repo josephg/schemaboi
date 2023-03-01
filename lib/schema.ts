@@ -70,19 +70,17 @@ export interface StructField {
 }
 
 export interface StructSchema {
-  type: 'struct',
+  type?: 'struct',
 
   /** Is the struct locally known / referenced? Defaults to false. */
   foreign?: boolean,
-
-  fields: Map<string, StructField>,
-
-  // encodingOrder: string[],
 
   // These methods, if provided, will be called before reading and after writing to prepare the object
   // for encoding. If used, the schema should express the data *at rest*.
   encode?: (obj: any) => Record<string, any>,
   decode?: (obj: Record<string, any>) => any,
+
+  fields: Map<string, StructField>,
 }
 
 export interface EnumVariant {
@@ -125,10 +123,11 @@ export interface EnumSchema {
   // encodingOrder: string[],
 }
 
+export type StructOrEnum = StructSchema & {type: 'struct'} | EnumSchema
 export interface Schema {
   id: string,
   root: SType, // TODO: Consider making the optional.
-  types: Record<string, StructSchema | EnumSchema>
+  types: Record<string, StructOrEnum>
 }
 
 
@@ -142,7 +141,7 @@ export interface Schema {
 export interface SimpleSchema {
   id: string,
   root: SType, // TODO: Consider making this optional.
-  types: Record<string, SimpleStructSchema | SimpleEnumSchema>
+  types: Record<string, SimpleStructSchema & {type: 'struct'} | SimpleEnumSchema>
 }
 
 export type SimpleField = {
@@ -155,7 +154,7 @@ export type SimpleField = {
 }
 
 export interface SimpleStructSchema {
-  type: 'struct',
+  type?: 'struct',
 
   fields: Record<string, SimpleField>,
 }
