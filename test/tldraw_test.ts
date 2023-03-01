@@ -13,14 +13,14 @@ const tldrawTest = () => {
         type: 'struct',
         // encodingOrder: ['id', 'x', 'y', 'rotation', 'parentId', 'index', 'props'], // 'typeName',
         fields: {
-          x: {type: 'f32', optional: false},
-          y: {type: 'f32', optional: false},
-          rotation: {type: 'f32', optional: false},
-          id: {type: 'id', optional: false},
-          parentId: {type: 'id', optional: false},
-          index: {type: 'string', optional: false},
-          typeName: {type: ref('ShapeType'), optional: false},
-          props: {type: ref('Props'), optional: false},
+          x: {type: 'f32'},
+          y: {type: 'f32'},
+          rotation: {type: 'f32'},
+          id: {type: 'id'},
+          parentId: {type: 'id'},
+          index: {type: 'string'},
+          typeName: {type: ref('ShapeType')},
+          props: {type: ref('Props')},
           // {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
         }
       },
@@ -44,14 +44,14 @@ const tldrawTest = () => {
             type: 'struct',
             // encodingOrder: ['opacity', 'color', 'size', 'w', 'text', 'font', 'align', 'autoSize'],
             fields: {
-              opacity: {type: 'string', optional: false},
-              color: {type: ref('Color'), optional: false},
-              size: {type: ref('Size'), optional: false},
-              w: {type: 'u32', optional: false},
-              text: {type: 'string', optional: false},
-              font: {type: 'string', optional: false},
-              align: {type: ref('Alignment'), optional: false},
-              autoSize: {type: 'bool', optional: false},
+              opacity: {type: 'string'},
+              color: {type: ref('Color')},
+              size: {type: ref('Size')},
+              w: {type: 'u32'},
+              text: {type: 'string'},
+              font: {type: 'string'},
+              align: {type: ref('Alignment')},
+              autoSize: {type: 'bool'},
             }
           }},
 
@@ -60,18 +60,18 @@ const tldrawTest = () => {
             // encodeOptional: 'none',
             // encodingOrder: ['w', 'h', 'geo', 'color']
             fields: {
-              w: {type: 'f32', optional: false},
-              h: {type: 'f32', optional: false},
-              geo: {type: ref('GeoType'), optional: false},
-              color: {type: ref('Color'), optional: false},
-              fill: {type: ref('Fill'), optional: false},
-              dash: {type: ref('Dash'), optional: false},
-              size: {type: ref('Size'), optional: false},
+              w: {type: 'f32'},
+              h: {type: 'f32'},
+              geo: {type: ref('GeoType')},
+              color: {type: ref('Color')},
+              fill: {type: ref('Fill')},
+              dash: {type: ref('Dash')},
+              size: {type: ref('Size')},
               opacity: {type: 'string'}, // Why is this a string?
               font: {type: 'string'}, // Or enumOfStrings(['draw'])
-              text: {type: 'string', optional: false},
-              align: {type: ref('Alignment'), optional: false},
-              growY: {type: 'u32', optional: false},
+              text: {type: 'string'},
+              align: {type: ref('Alignment')},
+              growY: {type: 'u32'},
             }
           }},
 
@@ -79,20 +79,20 @@ const tldrawTest = () => {
             type: 'struct',
             // encodeOptional: 'none',
             fields: {
-              opacity: {type: 'string', optional: false}, // Why is this a string?
-              dash: {type: ref('Dash'), optional: false},
-              size: {type: ref('Size'), optional: false},
-              fill: {type: ref('Fill'), optional: false},
-              color: {type: ref('Color'), optional: false},
-              w: {type: 'f32', optional: false},
-              h: {type: 'f32', optional: false},
-              bend: {type: 'f32', optional: false},
+              opacity: {type: 'string'}, // Why is this a string?
+              dash: {type: ref('Dash')},
+              size: {type: ref('Size')},
+              fill: {type: ref('Fill')},
+              color: {type: ref('Color')},
+              w: {type: 'f32'},
+              h: {type: 'f32'},
+              bend: {type: 'f32'},
 
-              start: {type: ref('ArrowEnd'), optional: false},
-              end: {type: ref('ArrowEnd'), optional: false},
+              start: {type: ref('ArrowEnd')},
+              end: {type: ref('ArrowEnd')},
 
-              arrowheadStart: {type: ref('ArrowHead'), optional: false},
-              arrowheadEnd: {type: ref('ArrowHead'), optional: false},
+              arrowheadStart: {type: ref('ArrowHead')},
+              arrowheadEnd: {type: ref('ArrowHead')},
             }
           }}
         }
@@ -101,18 +101,18 @@ const tldrawTest = () => {
       Vec2: {
         type: 'struct',
         fields: {
-          x: {type: 'f32', optional: false},
-          y: {type: 'f32', optional: false}
+          x: {type: 'f32'},
+          y: {type: 'f32'}
         }
       },
 
       ArrowEnd: {
         type: 'struct',
         fields: {
-          x: {type: 'f32', optional: false},
-          y: {type: 'f32', optional: false},
-          binding: {type: 'id', optional: false},
-          anchor: {type: ref('Vec2'), optional: false}
+          x: {type: 'f32'},
+          y: {type: 'f32'},
+          binding: {type: 'id'},
+          anchor: {type: ref('Vec2')}
         }
       }
     }

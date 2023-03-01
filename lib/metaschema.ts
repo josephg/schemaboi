@@ -121,8 +121,8 @@ export const metaSchema: Schema = {
             type: 'struct',
             fields: new Map<string, StructField>([
               ['foreign', { type: 'bool', defaultValue: true, skip: true }], // Not stored.
-              ['closed', { type: 'bool' }],
-              ['numericOnly', { type: 'bool' }],
+              ['closed', { type: 'bool', inline: true }],
+              ['numericOnly', { type: 'bool', inline: true }],
               ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
             ]),
           }
@@ -167,7 +167,7 @@ const metameta = () => {
   const bytes = toBinary(metaSchema, metaSchema)
   console.log(bytes)
   const remoteSchema = readData(metaSchema, bytes)
-  console.log(remoteSchema)
+  // console.log(remoteSchema)
 
   // assert.deepEqual(remoteSchema, metaSchema)
   // const m = mergeSchemas(remoteSchema, metaSchema)
