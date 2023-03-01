@@ -215,6 +215,26 @@ describe('roundtrips', () => {
       testRoundTrip(schema, {name: null, age: null, addresses: []})
     })
 
+    it('re-encodes foreign fields when serializing', () => {
+      const schema: Schema = {
+        id: 'Example',
+        root: ref('Contact'),
+        types: {
+          Contact: {
+            type: 'struct',
+            // encodingOrder: [],
+            fields: new Map<string, StructField>([
+              ['name', {type: String}],
+              ['age', {type: prim('u32'), foreign: true}],
+            ])
+          },
+        }
+      }
+
+      testRoundTripFullSchema(schema, {name: 'seph', _external: {age: 32}})
+      testRoundTripFullSchema(schema, {name: 'seph', age: 32}, {name: 'seph', _external: {age: 32}})
+    })
+
     it('supports inlined and non-inlined booleans', () => {
       const schema: Schema = {
         id: 'Example',

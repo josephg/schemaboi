@@ -206,6 +206,9 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
       const fieldName = field.renameFieldTo ?? k
       let v = val[fieldName]
 
+      // External fields always use the raw field name.
+      if (field.foreign && v === undefined && val._external) v = val._external[k]
+
       // console.log('field', k, 'inline', field.inline, 'encoding', field.encoding, 'hasValue', v != null, 'value', v)
       if (field.optional) {
         const hasValue = v != null

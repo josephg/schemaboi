@@ -79,8 +79,10 @@ describe('merging', () => {
           // encodingOrder: [],
           fields: new Map<string, StructField>([
             // name: {type: String},
-            ['age', {type: prim('u32'), skip: true, renameFieldTo: 'yearsOld'}],
-            ['address', {type: String, skip: true, defaultValue: 'unknown location'}],
+            ['age', {type: prim('u32'), renameFieldTo: 'yearsOld'}],
+            ['address', {type: String, defaultValue: 'unknown location'}],
+            // ['age', {type: prim('u32'), skip: true, renameFieldTo: 'yearsOld'}],
+            // ['address', {type: String, skip: true, defaultValue: 'unknown location'}],
           ])
         },
         Color: enumOfStrings('Red', 'Bronze'),
