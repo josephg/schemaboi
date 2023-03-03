@@ -2,6 +2,7 @@ import { Schema, SimpleSchema } from "../lib/schema.js"
 import { Bool, enumOfStrings, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
 import fs from 'fs'
 import { toBinary } from "../lib/write.js"
+import { metaSchema } from "../lib/metaschema.js"
 
 const tldrawTest = () => {
   const testSchema: SimpleSchema = {
@@ -121,11 +122,19 @@ const tldrawTest = () => {
   console.log('\n\n')
   const shapes = JSON.parse(fs.readFileSync('./tldraw-example.json', 'utf8')).data.shape
   // console.log(shapes)
-  let out = toBinary(extendSchema(testSchema), shapes)
+  const fullSchema = extendSchema(testSchema)
+
+  // console.log(fullSchema)
+  const sOut = toBinary(metaSchema, fullSchema)
+  console.log('schema', sOut)
+  fs.writeFileSync('tld_schema.scb', sOut)
+
+
+  let out = toBinary(fullSchema, shapes)
   // const out = readData(testSchema, shapes)
   console.log('Output length', out.length)
   fs.writeFileSync('tld2.scb', out)
 
 }
 
-tldrawTest()
+// tldrawTest()

@@ -1,14 +1,19 @@
 import 'mocha'
 import fs from 'fs'
 import assert from 'assert/strict'
-import {varintEncode, bytesUsed, varintDecode, zigzagEncode, zigzagDecode} from '../lib/varint.js'
+import {varintEncode, bytesUsed, varintDecode, zigzagEncode, zigzagDecode, varintEncodeBN, varintDecodeBN} from '../lib/varint.js'
+import {randomBytes} from 'crypto'
 
-const roundtripSint = (n: number) => {
-  const zz = zigzagEncode(n)
-  const encoded = varintEncode(zz)
-  const decoded = varintDecode(encoded)
-  const output = zigzagDecode(decoded)
-  assert.equal(output, n)
+// Helper function while debugging.
+const printBinary = (x: Uint8Array) => {
+  console.log([...x].map(b => b.toString(2).padStart(8, '0')).join(' '))
+}
+
+const checkZigZag = (n: number) => {
+  let zz = zigzagEncode(n)
+  assert(zz >= 0)
+  let out = zigzagDecode(zz)
+  assert.equal(n, out)
 }
 
 const roundtripUint = (n: number) => {
@@ -17,10 +22,34 @@ const roundtripUint = (n: number) => {
   assert.equal(decoded, n)
 
   if (n < Number.MAX_SAFE_INTEGER / 2) {
-    roundtripSint(n)
-    if (n !== 0) roundtripSint(-n)
+    checkZigZag(n)
+    if (n !== 0) checkZigZag(-n)
   }
+
+  roundtripBN(BigInt(n))
 }
+
+const roundtripBN = (n: bigint) => {
+  // console.log('\nx', n)
+  const encoded = varintEncodeBN(n)
+  const decoded = varintDecodeBN(encoded)
+  assert.equal(decoded, n)
+  // if (n !== decoded) {
+  //   console.log('MISMATCH', n)
+  //   console.log('enc', encoded)
+  //   printBinary(encoded)
+  //   if (n < Number.MAX_SAFE_INTEGER) {
+  //     console.log('old encoding', varintEncode(Number(n)))
+  //   }
+  //   console.log('dec', decoded)
+  //   // console.log(
+
+  //   throw Error('Bad encode / decode')
+  // }
+  // assert(n === decoded)
+}
+
+
 
 describe('varint encoding', () => {
   it('roundtrip encodes simple numbers correctly', () => {
@@ -32,13 +61,6 @@ describe('varint encoding', () => {
   })
 
   it('zigzag encodes correctly', () => {
-    const checkZigZag = (n: number) => {
-      let zz = zigzagEncode(n)
-      assert(zz >= 0)
-      let out = zigzagDecode(zz)
-      assert.equal(n, out)
-    }
-
     checkZigZag(0)
     checkZigZag(1)
     checkZigZag(-1)
@@ -75,6 +97,40 @@ describe('varint encoding', () => {
       assert.deepEqual(expectBytes, actualBytes)
 
       // console.log(actualBytes, expectBytes)
+    }
+  })
+
+  it('handles simple bigints', () => {
+    roundtripBN(0n)
+    roundtripBN(1n)
+    roundtripBN(0xffffffffffffn)
+    roundtripBN(2n**128n - 1n) // Largest number we support.
+  })
+
+  it('fuzzes', () => {
+    // Ideally we'd use a stable RNG here, but it should be fine as any
+    // errors are trivially reproducable.
+
+    for (let i = 0; i < 20000; i++) {
+      // We'll generate a number with a random number of bits.
+      const bits = Math.ceil(Math.random() * 128)
+      const numBytes = Math.ceil(bits / 8)
+
+      // Using crypto.randomBytes because its easier than Math.random, and I'm lazy.
+      const bytes = randomBytes(numBytes)
+      bytes[0] &= 0xff >> (8-(bits % 8))
+
+      let num = 0n
+      for (const b of bytes) {
+        num = num << 8n | BigInt(b)
+      }
+
+      // console.log(num)
+
+      roundtripBN(num)
+      if (num < Number.MAX_SAFE_INTEGER) {
+        roundtripUint(Number(num))
+      }
     }
   })
 })
