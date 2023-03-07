@@ -287,35 +287,75 @@ describe('roundtrips', () => {
       testRoundTripFullSchema(schema, {a: false, d: true}, {a: false, b: false, c: true, d: true})
     })
 
-    it('works with all numeric types', () => {
-      const schema: SimpleSchema = {
-        id: 'Example',
-        root: ref('NumTest'),
-        types: {
-          NumTest: {
-            type: 'struct',
-            fields: {
-              u8: {type: prim('u8')},
-              u16: {type: prim('u16')},
-              u32: {type: prim('u32')},
-              u64: {type: prim('u64')},
-              u128: {type: prim('u128')},
+    describe('numerics', () => {
+      it('works with default options', () => {
+        const schema: SimpleSchema = {
+          id: 'Example',
+          root: ref('NumTest'),
+          types: {
+            NumTest: {
+              type: 'struct',
+              fields: {
+                u8: {type: prim('u8')},
+                u16: {type: prim('u16')},
+                u32: {type: prim('u32')},
+                u64: {type: prim('u64')},
+                u128: {type: prim('u128')},
 
-              s8: {type: prim('s8')},
-              s16: {type: prim('s16')},
-              s32: {type: prim('s32')},
-              s64: {type: prim('s64')},
-              s128: {type: prim('s128')},
+                s8: {type: prim('s8')},
+                s16: {type: prim('s16')},
+                s32: {type: prim('s32')},
+                s64: {type: prim('s64')},
+                s128: {type: prim('s128')},
+              }
             }
           }
         }
-      }
 
-      testRoundTrip(schema, {
-        u8: 0xff, u16: 0xffff, u32: 0xffffffff, u64: Number.MAX_SAFE_INTEGER, u128: Number.MAX_SAFE_INTEGER,
-        s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: 0, s128: 0,
-        // s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: Number.MIN_SAFE_INTEGER, s128: Number.MIN_SAFE_INTEGER,
+        testRoundTrip(schema, {
+          u8: 0xff, u16: 0xffff, u32: 0xffffffff, u64: Number.MAX_SAFE_INTEGER, u128: Number.MAX_SAFE_INTEGER,
+          s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: 0, s128: 0,
+          // s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: Number.MIN_SAFE_INTEGER, s128: Number.MIN_SAFE_INTEGER,
+        })
+        testRoundTrip(schema, {
+          u8: 0xffn, u16: 0xffffn, u32: 0xffffffffn, u64: BigInt(Number.MAX_SAFE_INTEGER), u128: BigInt(Number.MAX_SAFE_INTEGER),
+          s8: -0x80n, s16: -0x8000n, s32: -0x80000000n, s64: 0n, s128: 0n,
+        }, {
+          u8: 0xff, u16: 0xffff, u32: 0xffffffff, u64: Number.MAX_SAFE_INTEGER, u128: Number.MAX_SAFE_INTEGER,
+          s8: -0x80, s16: -0x8000, s32: -0x80000000, s64: 0, s128: 0,
+        })
       })
+
+      it('decodes bigints', () => {
+        const schema: SimpleSchema = {
+          id: 'Example',
+          root: ref('NumTest'),
+          types: {
+            NumTest: {
+              type: 'struct',
+              fields: {
+                u8: {type: {type: 'u8', decodeAsBigInt: true}},
+                u16: {type: {type: 'u16', decodeAsBigInt: true}},
+                u32: {type: {type: 'u32', decodeAsBigInt: true}},
+                u64: {type: {type: 'u64', decodeAsBigInt: true}},
+                u128: {type: {type: 'u128', decodeAsBigInt: true}},
+
+                s8: {type: {type: 's8', decodeAsBigInt: true}},
+                s16: {type: {type: 's16', decodeAsBigInt: true}},
+                s32: {type: {type: 's32', decodeAsBigInt: true}},
+                s64: {type: {type: 's64', decodeAsBigInt: true}},
+                s128: {type: {type: 's128', decodeAsBigInt: true}},
+              }
+            }
+          }
+        }
+
+        testRoundTrip(schema, {
+          u8: 0xffn, u16: 0xffffn, u32: 0xffffffffn, u64: 2n ** 64n - 1n, u128: 2n ** 128n - 1n,
+          s8: -0x80n, s16: -0x8000n, s32: -0x80000000n, s64: -(2n ** 64n), s128: -(2n ** 127n - 1n),
+        })
+      })
+
     })
 
     it('ids', () => {

@@ -93,4 +93,28 @@ describe('write', () => {
     // This will fail if the encoding system changes.
     assert.deepEqual(expected, out)
   })
+
+  it('encodes varint when asked', () => {
+    {
+      const schema: SimpleSchema = {
+        id: 'Example',
+        root: {type: 'u8', numericEncoding: 'le'},
+        types: {}
+      }
+
+      const out = toBinary(extendSchema(schema), 205)
+      assert.deepEqual(out, new Uint8Array([205]))
+    }
+
+    {
+      const schema: SimpleSchema = {
+        id: 'Example',
+        root: {type: 'u8', numericEncoding: 'varint'},
+        types: {}
+      }
+
+      const out = toBinary(extendSchema(schema), 205)
+      assert.deepEqual(out, new Uint8Array([0x80, 77]))
+    }
+  })
 })

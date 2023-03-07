@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
 import {EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, fillSchemaDefaults, Id, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
+import { Bool, enumOfStrings, fillSchemaDefaults, Id, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 // import * as assert from 'assert/strict'
@@ -51,16 +51,25 @@ export const metaSchema: Schema = {
       ]),
     },
 
+    NumberEncoding: enumOfStrings('le', 'varint'),
+
     Type: {
       // This has all the types in Primitive, and more!
       type: 'enum',
       closed: false,
       numericOnly: false,
       variants: new Map<string, EnumVariant>([
-        ...primitiveTypes.map((t): [string, EnumVariant] => [t, {}]),
+        ...['bool', 'string', 'binary', 'id', 'f32', 'f64'].map((t): [string, EnumVariant] => [t, {}]),
+        ...['u8', 'u16', 'u32', 'u64', 'u128', 's8', 's16', 's32', 's64', 's128'].map((t): [string, EnumVariant] => [t, {
+          associatedData: {
+            fields: new Map<string, StructField>([
+              ['encoding', { type: ref('NumberEncoding')}]
+            ])
+          }
+        }]),
         ['ref', {
           associatedData: {
-            fields: new Map<string, StructField>([['key', { type: String }]]),
+            fields: new Map<string, StructField>([['key', { type: Id }]]),
           }
         }],
         ['list', {

@@ -8,7 +8,6 @@ describe('metaschema', () => {
   it('can parse itself', () => {
 
     const bytes = toBinary(metaSchema, metaSchema)
-    // console.log(bytes)
     const remoteSchema = readData(metaSchema, bytes)
     // console.log(remoteSchema)
     fillSchemaDefaults(metaSchema, false)
@@ -19,6 +18,7 @@ describe('metaschema', () => {
     // console.log(metaSchema)
     assert.deepEqual(metaSchema, rm)
 
+    // console.log(bytes)
     // fs.writeFileSync('metaschema.scb', bytes)
   })
 })

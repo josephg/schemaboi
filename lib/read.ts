@@ -1,8 +1,8 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Primitive, Schema, StructSchema, SType, StructField } from "./schema.js"
-import { bytesUsed, trimBit, varintDecode, zigzagDecode } from "./varint.js"
-import { enumVariantsInUse, isPrimitive } from "./utils.js"
+import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive } from "./schema.js"
+import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
+import { intEncoding, enumVariantsInUse, isPrimitive } from "./utils.js"
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -21,6 +21,11 @@ function readVarInt(r: Reader): number {
   const buf = new Uint8Array(r.data.buffer, r.pos + r.data.byteOffset)
   r.pos += bytesUsed(buf)
   return varintDecode(buf)
+}
+function readVarIntBN(r: Reader): bigint {
+  const buf = new Uint8Array(r.data.buffer, r.pos + r.data.byteOffset)
+  r.pos += bytesUsed(buf)
+  return varintDecodeBN(buf)
 }
 
 const textDecoder = new TextDecoder('utf-8')
@@ -108,51 +113,6 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
     storeVal(k, field, v)
   }
 
-
-
-  // if (hasOptionalFields(struct)) {
-  //   let optionalBits = readVarInt(r)
-  //   // console.log('optional bits', optionalBits)
-  //   for (const f of struct.encodingOrder) {
-  //     if (struct.fields[f].optional) {
-  //       const [fieldMissing, next] = trimBit(optionalBits)
-  //       optionalBits = next
-
-  //       if (fieldMissing) missingFields.add(f)
-  //     }
-  //   }
-  // }
-
-  // // This is just for debugging.
-  // const expectedJsFields = new Set(Object.keys(struct.fields).filter(k => !struct.fields[k].foreign))
-
-  // // console.log('missing fields', missingFields)
-  // for (const f of struct.encodingOrder) {
-  //   // We always read all the fields, since we need to update the read position regardless of if we use the output.
-  //   const type = struct.fields[f]
-  //   if (type == null) throw Error('Missing field in schema')
-
-  //   const thing = missingFields.has(f)
-  //     ? (type.defaultValue ?? null) // The field is optional and missing from the result.
-  //     : readThing(r, schema, type.type, result!)
-
-  //   if (type.foreign) {
-  //     console.warn(`Warning: foreign field '${f}' in struct`)
-  //     result!._external ??= {}
-  //     result!._external[f] = thing
-  //   } else {
-  //     result![type.renameFieldTo ?? f] = thing
-  //   }
-
-  //   expectedJsFields.delete(f)
-  // }
-
-  // for (const f of expectedJsFields) {
-  //   // Any fields here are fields the application expects but are missing from the file's schema.
-  //   const type = struct.fields[f]
-  //   result![type.renameFieldTo ?? f] = type.defaultValue ?? null
-  // }
-
   return struct.decode ? struct.decode(result!) : result
 }
 
@@ -197,16 +157,38 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
   }
 }
 
-function readPrimitive(r: Reader, type: Primitive): any {
-  switch (type) {
-    case 'u8': return r.data.getUint8(r.pos++)
-    case 's8': return r.data.getInt8(r.pos++)
-    case 'u16': case 'u32': case 'u64': case 'u128':
-      return readVarInt(r)
-    case 's16': case 's32': case 's64': case 's128':
-      return zigzagDecode(readVarInt(r))
+function readNumeric(r: Reader, type: IntPrimitive): number | bigint {
+  const encoding = intEncoding(type)
+  const isSigned = type.type[0] === 's'
 
-    case 'string': return readString(r)
+  if (encoding === 'varint') {
+    if (type.decodeAsBigInt) {
+      // We don't actually care what the inner type is.
+      const n = readVarIntBN(r)
+      return isSigned ? zigzagDecodeBN(n) : n
+    } else {
+      const n = readVarInt(r)
+      return isSigned ? zigzagDecode(n) : n
+    }
+  } else {
+    let n: number
+    switch (type.type) {
+      case 'u8': n = r.data.getUint8(r.pos++); break
+      case 's8': n = r.data.getInt8(r.pos++); break
+      default: throw Error('Not implemented: Little endian encoding for int type: ' + type.type)
+    }
+    return type.decodeAsBigInt ? BigInt(n) : n
+  }
+}
+
+function readPrimitive(r: Reader, type: WrappedPrimitive | IntPrimitive): any {
+  switch (type.type) {
+
+    case 'u8': case 's8':
+    case 'u16': case 'u32': case 'u64': case 'u128':
+    case 's16': case 's32': case 's64': case 's128':
+      return readNumeric(r, type)
+
     case 'f32': {
       const result = r.data.getFloat32(r.pos, true)
       r.pos += 4
@@ -217,11 +199,14 @@ function readPrimitive(r: Reader, type: Primitive): any {
       r.pos += 8
       return result
     }
+
+
     case 'bool': {
       const bit = r.data.getUint8(r.pos) !== 0
       r.pos++
       return bit
     }
+    case 'string': return readString(r)
     case 'binary': {
       const len = readVarInt(r)
       // r.data.
@@ -279,7 +264,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
         if (type.keyType.type !== 'string' && type.keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
         const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, type.keyType.type)
+          const k = readPrimitive(r, type.keyType)
           const v = readThing(r, schema, type.valType)
           result[k] = v
         }
@@ -297,7 +282,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       }
     }
     default:
-      if (isPrimitive(type.type)) return readPrimitive(r, type.type)
+      if (isPrimitive(type.type)) return readPrimitive(r, type)
       else throw Error(`Attempt to read unknown type: ${type.type}`)
   }
 }

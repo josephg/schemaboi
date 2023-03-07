@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, Primitive, StructOrEnum } from "./schema.js"
+import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive } from "./schema.js"
 
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -370,13 +370,14 @@ export const enumVariantsInUse = (e: EnumSchema): string[] => (
 
 
 const fillSTypeDefaults = (t: SType) => {
-  if (typeof t === 'object') {
-    if (t.type === 'map') {
-      t.decodeForm ??= 'object'
-      fillSTypeDefaults(t.valType)
-    } else if (t.type === 'list') {
-      fillSTypeDefaults(t.fieldType)
-    }
+  if (t.type === 'map') {
+    t.decodeForm ??= 'object'
+    fillSTypeDefaults(t.valType)
+  } else if (t.type === 'list') {
+    fillSTypeDefaults(t.fieldType)
+  } else if (isInt(t)) {
+    t.decodeAsBigInt ??= false
+    t.numericEncoding ??= intEncoding(t)
   }
 }
 
@@ -423,7 +424,6 @@ export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
   return s
 }
 
-
 export const primitiveTypes: Primitive[] = [
   'bool',
   'u8', 'u16', 'u32', 'u64', 'u128',
@@ -436,7 +436,26 @@ export const isPrimitive = (s: string): s is Primitive => (
   (primitiveTypes as string[]).indexOf(s) >= 0
 )
 
+export const intTypes: IntPrimitive["type"][] = [
+  'u8', 'u16', 'u32', 'u64', 'u128',
+  's8', 's16', 's32', 's64', 's128',
+]
+
+export const isInt = (s: SType): s is IntPrimitive => (
+  (intTypes as string[]).indexOf(s.type) >= 0
+)
+// export const isInt = (s: string): s is IntPrimitive["type"] => (
+//   (intTypes as string[]).indexOf(s) >= 0
+// )
+
+
+
 export const prim = (inner: Primitive): SType => ({type: inner})
 export const String: SType = prim('string')
 export const Id: SType = prim('id')
 export const Bool: SType = prim('bool')
+
+
+export const intEncoding = (num: IntPrimitive): 'le' | 'varint' => (
+  num.numericEncoding ?? ((num.type === 'u8' || num.type === 's8') ? 'le' : 'varint')
+)

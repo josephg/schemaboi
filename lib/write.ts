@@ -1,6 +1,6 @@
-import { mixBit, varintEncodeInto, zigzagEncode } from "./varint.js"
-import { EnumObject, EnumSchema, Primitive, Schema, SimpleSchema, StructSchema, SType } from "./schema.js"
-import { assert, enumVariantsInUse, extendSchema, isPrimitive, ref } from "./utils.js"
+import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
+import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, SimpleSchema, StructSchema, SType, WrappedPrimitive } from "./schema.js"
+import { assert, enumVariantsInUse, extendSchema, intEncoding, isPrimitive, ref } from "./utils.js"
 
 // import assert from 'assert/strict'
 // import {Console} from 'node:console'
@@ -38,8 +38,12 @@ const ensureCapacity = (b: WriteBuffer, amt: number) => {
 }
 
 const writeVarInt = (w: WriteBuffer, num: number) => {
-  ensureCapacity(w, 9)
+  ensureCapacity(w, MAX_INT_LEN)
   w.pos += varintEncodeInto(num, w.buffer, w.pos)
+}
+const writeVarIntBN = (w: WriteBuffer, num: bigint) => {
+  ensureCapacity(w, MAX_BIGINT_LEN)
+  w.pos += varintEncodeIntoBN(num, w.buffer, w.pos)
 }
 
 const encoder = new TextEncoder()
@@ -59,8 +63,8 @@ function checkPrimitiveType(val: any, type: Primitive) {
   switch (type) {
     case 'u8': case 'u16': case 'u32': case 'u64': case 'u128':
     case 's8': case 's16': case 's32': case 's64': case 's128':
-    case 'f32': case 'f64':
-      assert(typeof val === 'number'); break
+      case 'f32': case 'f64':
+      assert(typeof val === 'number' || typeof val === 'bigint'); break
     case 'bool': assert(typeof val === 'boolean'); break
     case 'string': case 'id': assert(typeof val === 'string'); break
     case 'binary': assert(val instanceof Uint8Array); break // TODO: Allow more binary types.
@@ -68,10 +72,28 @@ function checkPrimitiveType(val: any, type: Primitive) {
   }
 }
 
-function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
-  checkPrimitiveType(val, type)
+function writeInt(w: WriteBuffer, val: number | bigint, type: IntPrimitive) {
+  const encoding = intEncoding(type)
+  if (encoding === 'le') {
+    if (type.type !== 'u8' && type.type !== 's8') throw Error('NYI: Little endian encoding for numberic ' + type.type)
+    w.buffer[w.pos++] = Number(val)
+  } else {
+    const isSigned = type.type[0] === 's'
+    // console.log('writing', val, 'type', typeof val, 'signed', isSigned, 'x', isSigned ? zigzagEncodeBN(BigInt(val)) : val)
 
-  switch (type) {
+    // Writing a varint.
+    if (typeof val === 'bigint') {
+      writeVarIntBN(w, isSigned ? zigzagEncodeBN(val) : val)
+    } else if (typeof val === 'number') {
+      writeVarInt(w, isSigned ? zigzagEncode(val) : val)
+    } else throw Error('Cannot encode type as a number')
+  }
+}
+
+function encodePrimitive(w: WriteBuffer, val: any, type: WrappedPrimitive | IntPrimitive) {
+  checkPrimitiveType(val, type.type)
+
+  switch (type.type) {
     case 'bool': {
       ensureCapacity(w, 1)
       w.buffer[w.pos++] = val
@@ -85,7 +107,8 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
       // to just write directly to the buffer, but unaligned writes aren't
       // supported by Float32Array.
       const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
-      dataView.setFloat32(0, val, true)
+      // Coerce bigint -> number.
+      dataView.setFloat32(0, typeof val === 'number' ? val : Number(val), true)
       w.pos += 4
       break
     }
@@ -93,23 +116,15 @@ function encodePrimitive(w: WriteBuffer, val: any, type: Primitive) {
       ensureCapacity(w, 8)
 
       const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
-      dataView.setFloat64(0, val, true)
+      dataView.setFloat64(0, typeof val === 'number' ? val : Number(val), true)
       w.pos += 8
       break
     }
 
-    case 'u8': case 's8': {
-      // Uint8Array will automatically store the 2s compliment of negative numbers
-      // when we assign like this.
-      w.buffer[w.pos++] = val
-      break
-    }
-
-    case 's16': case 's32': case 's64': case 's128': val = zigzagEncode(val) // And flow down.
-    case 'u16': case 'u32': case 'u64': case 'u128': {
-      writeVarInt(w, val)
-      break
-    }
+    case 'u8': case 's8':
+    case 'u16': case 'u32': case 'u64': case 'u128':
+    case 's16': case 's32': case 's64': case 's128':
+      writeInt(w, val, type); break;
 
     case 'string': {
       writeString(w, val)
@@ -324,7 +339,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
     }
     default:
       if (!isPrimitive(type.type)) throw Error(`Unknown type '${type.type}' while encoding`)
-      encodePrimitive(w, val, type.type)
+      encodePrimitive(w, val, type)
       break
   }
 }

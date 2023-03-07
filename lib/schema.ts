@@ -1,7 +1,6 @@
-export type Primitive = 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
-  | 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
-  | 's8' | 's16' | 's32' | 's64' | 's128'
-  // | {type: 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 's8' | 's16' | 's32' | 's64' | 's128', encoding: 'varint' | 'le'}
+// export type Primitive = 'f32' | 'f64' | 'bool' | 'string' | 'binary' | 'id'
+//   | 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
+//   | 's8' | 's16' | 's32' | 's64' | 's128'
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
 export type List = {type: 'list', fieldType: SType}
@@ -13,10 +12,20 @@ export interface MapType { // MapType rather than Map because Map is the name of
   decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
 }
 export interface WrappedPrimitive {
-  type: Primitive,
+  type: 'bool' | 'string' | 'binary' | 'id' | 'f32' | 'f64',
 }
+export interface IntPrimitive {
+  type: 'u8' | 'u16' | 'u32' | 'u64' | 'u128'
+    | 's8' | 's16' | 's32' | 's64' |'s128',
 
-export type SType = WrappedPrimitive | Ref | List | MapType
+  // Encoding. If omitted, defaults to little endian for u8/s8 and varint for the rest.
+  numericEncoding?: 'le' | 'varint',
+
+  decodeAsBigInt?: boolean // JS encoding.
+}
+export type Primitive = (WrappedPrimitive | IntPrimitive)['type']
+
+export type SType = WrappedPrimitive | IntPrimitive | Ref | List | MapType
 
 // export type MapEncoding<T> = {
 //   fromEntries: (entries: [any, any][]) => T,

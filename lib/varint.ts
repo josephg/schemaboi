@@ -1,5 +1,8 @@
 import { assert } from "./utils.js"
 
+export const MAX_INT_LEN = 9
+export const MAX_BIGINT_LEN = 19
+
 export function bytesUsed(bytes: Uint8Array): number {
   // Pull out the first 4 bytes. We'll never encode a number larger than 2^128 with this
   // encoder, but that gives us up to 3 bytes with 1 bits in them.
@@ -25,7 +28,7 @@ for (let i = 1; i < 7; i++) {
 VARINT_ENC_CUTOFFS.push(Number.MAX_VALUE)
 
 export function varintEncode(num: number): Uint8Array {
-  const result = new Uint8Array(9)
+  const result = new Uint8Array(MAX_INT_LEN)
   const bytesUsed = varintEncodeInto(num, result, 0)
   return result.slice(0, bytesUsed)
 }
@@ -139,7 +142,7 @@ export function varintEncodeIntoBN(num: bigint, dest: Uint8Array, offset: number
 }
 
 export function varintEncodeBN(num: bigint): Uint8Array {
-  const result = new Uint8Array(19)
+  const result = new Uint8Array(MAX_BIGINT_LEN)
   const bytesUsed = varintEncodeIntoBN(num, result, 0)
   return result.slice(0, bytesUsed)
 }
@@ -193,6 +196,18 @@ export function zigzagDecode(val: number): number {
   return (val % 2) === 1
     ? -Math.floor(val / 2)
     : Math.floor(val / 2)
+}
+
+export function zigzagEncodeBN(val: bigint): bigint {
+  return val < 0
+    ? (-val << 1n) + 1n
+    : val << 1n
+}
+
+export function zigzagDecodeBN(val: bigint): bigint {
+  return (val % 2n) === 1n
+    ? -val / 2n // Will truncate.
+    : val / 2n
 }
 
 export function mixBit(val: number, bit: boolean): number {
