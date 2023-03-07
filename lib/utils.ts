@@ -195,13 +195,21 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   }
 }
 
+const extendType = (t: SType | Primitive): SType => (
+  typeof t === 'object' ? t : {type: t}
+)
+
+const getType = (t: SType | Primitive): SType['type'] => (
+  typeof t === 'object' ? t.type : t
+)
+
 function extendStruct(s: SimpleStructSchema): StructSchema & {type: 'struct'} {
   return {
     type: 'struct',
     fields: objMapToMap(s.fields, f => ({
-      type: f.type,
+      type: extendType(f.type),
       defaultValue: f.defaultValue,
-      inline: f.type.type === 'bool' ? true : false, // Inline booleans.
+      inline: getType(f.type) === 'bool' ? true : false, // Inline booleans.
       optional: f.optional ?? false,
       skip: false,
       // encoding: f.optional ? 'optional' : 'required',
@@ -228,7 +236,7 @@ function extendEnum(s: SimpleEnumSchema): EnumSchema {
 export function extendSchema(schema: SimpleSchema): Schema {
   return {
     id: schema.id,
-    root: schema.root,
+    root: extendType(schema.root),
     types: objMap(schema.types, s => (
       s.type === 'enum' ? extendEnum(s) : extendStruct(s)
     ))

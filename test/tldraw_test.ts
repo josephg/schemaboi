@@ -12,11 +12,10 @@ const tldrawTest = () => {
     types: {
       Shape: {
         type: 'struct',
-        // encodingOrder: ['id', 'x', 'y', 'rotation', 'parentId', 'index', 'props'], // 'typeName',
         fields: {
-          x: {type: prim('f32')},
-          y: {type: prim('f32')},
-          rotation: {type: prim('f32')},
+          x: {type: 'f32'},
+          y: {type: 'f32'},
+          rotation: {type: 'f32'},
           id: {type: Id},
           parentId: {type: Id},
           index: {type: String},
@@ -43,12 +42,11 @@ const tldrawTest = () => {
         variants: {
           text: { associatedData: {
             type: 'struct',
-            // encodingOrder: ['opacity', 'color', 'size', 'w', 'text', 'font', 'align', 'autoSize'],
             fields: {
               opacity: {type: String},
               color: {type: ref('Color')},
               size: {type: ref('Size')},
-              w: {type: prim('u32')},
+              w: {type: 'u32'},
               text: {type: String},
               font: {type: String},
               align: {type: ref('Alignment')},
@@ -59,10 +57,9 @@ const tldrawTest = () => {
           geo: { associatedData: {
             type: 'struct',
             // encodeOptional: 'none',
-            // encodingOrder: ['w', 'h', 'geo', 'color']
             fields: {
-              w: {type: prim('f32')},
-              h: {type: prim('f32')},
+              w: {type: 'f32'},
+              h: {type: 'f32'},
               geo: {type: ref('GeoType')},
               color: {type: ref('Color')},
               fill: {type: ref('Fill')},
@@ -72,7 +69,7 @@ const tldrawTest = () => {
               font: {type: String}, // Or enumOfStrings(['draw'])
               text: {type: String},
               align: {type: ref('Alignment')},
-              growY: {type: prim('u32')},
+              growY: {type: 'u32'},
             }
           }},
 
@@ -85,9 +82,9 @@ const tldrawTest = () => {
               size: {type: ref('Size')},
               fill: {type: ref('Fill')},
               color: {type: ref('Color')},
-              w: {type: prim('f32')},
-              h: {type: prim('f32')},
-              bend: {type: prim('f32')},
+              w: {type: 'f32'},
+              h: {type: 'f32'},
+              bend: {type: 'f32'},
 
               start: {type: ref('ArrowEnd')},
               end: {type: ref('ArrowEnd')},
@@ -102,16 +99,16 @@ const tldrawTest = () => {
       Vec2: {
         type: 'struct',
         fields: {
-          x: {type: prim('f32')},
-          y: {type: prim('f32')}
+          x: {type: 'f32'},
+          y: {type: 'f32'}
         }
       },
 
       ArrowEnd: {
         type: 'struct',
         fields: {
-          x: {type: prim('f32')},
-          y: {type: prim('f32')},
+          x: {type: 'f32'},
+          y: {type: 'f32'},
           binding: {type: Id},
           anchor: {type: ref('Vec2')}
         }

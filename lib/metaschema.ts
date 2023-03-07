@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumVariant, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, enumOfStrings, fillSchemaDefaults, Id, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
+import {EnumVariant, IntPrimitive, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
+import { Bool, enumOfStrings, fillSchemaDefaults, Id, intEncoding, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 // import * as assert from 'assert/strict'
@@ -63,7 +63,11 @@ export const metaSchema: Schema = {
         ...['u8', 'u16', 'u32', 'u64', 'u128', 's8', 's16', 's32', 's64', 's128'].map((t): [string, EnumVariant] => [t, {
           associatedData: {
             fields: new Map<string, StructField>([
-              ['encoding', { type: ref('NumberEncoding')}]
+              ['encoding', {
+                type: ref('NumberEncoding'),
+                renameFieldTo: 'numericEncoding',
+                defaultValue: ((obj: IntPrimitive) => intEncoding(obj)),
+              }]
             ])
           }
         }]),

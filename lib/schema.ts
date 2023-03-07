@@ -45,7 +45,7 @@ export interface StructField {
    * - When writing a required field, the value in JS is allowed to be missing. In that case, we'll
    *   write this value instead. We only do this if encoding is 'required'.
    */
-  defaultValue?: any,
+  defaultValue?: any | ((obj: any) => any),
 
   /**
    * JS: Is this field unknown to the local application? Foreign fields are deserialized in
@@ -148,12 +148,12 @@ export interface Schema {
  */
 export interface SimpleSchema {
   id: string,
-  root: SType, // TODO: Consider making this optional.
+  root: SType | Primitive, // TODO: Consider making this optional.
   types: Record<string, SimpleStructSchema & {type: 'struct'} | SimpleEnumSchema>
 }
 
 export type SimpleField = {
-  type: SType, // Schema type
+  type: SType | Primitive, // Schema type
 
   /** If the field is missing in the data set, use this value instead of null when decoding. */
   defaultValue?: any,

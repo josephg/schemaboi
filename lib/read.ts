@@ -73,8 +73,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   const missingFields = new Set<string>()
 
   const storeVal = (k: string, field: StructField, v: any) => {
-    // console.log('storeVal', k, v, field.defaultValue, field)
-    v ??= (field.defaultValue ?? null)
+    // TODO: There's a sorta bug here: We haven't read all the other fields of the object.
+    v ??= typeof field.defaultValue === 'function'
+      ? field.defaultValue(result)
+      : (field.defaultValue ?? null)
     if (field.foreign) {
       console.warn(`Warning: foreign field '${k}' in struct`)
       result._external ??= {}

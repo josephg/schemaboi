@@ -231,7 +231,11 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
         if (!hasValue) continue
       } else {
         // If the field is missing, fill it in with the default value.
-        v ??= field.defaultValue
+        if (v == null && field.defaultValue != null) {
+          v = typeof field.defaultValue === 'function'
+            ? field.defaultValue(val)
+            : field.defaultValue
+        }
         if (v == null) throw Error(`null or missing field '${fieldName}' required by encoding`)
       }
 
