@@ -203,9 +203,11 @@ const getType = (t: SType | Primitive): SType['type'] => (
   typeof t === 'object' ? t.type : t
 )
 
-function extendStruct(s: AppStructSchema): StructSchema & {type: 'struct'} {
+function extendStruct(s: AppStructSchema): StructSchema {
   return {
-    type: 'struct',
+    ...s, // Copy encode and decode. We'll rewrite fields.
+    // encode: s.encode,
+    // decode: s.decode,
     fields: objMapToMap(s.fields, f => ({
       type: extendType(f.type),
       defaultValue: f.defaultValue,
@@ -238,7 +240,7 @@ export function extendSchema(schema: AppSchema): Schema {
     id: schema.id,
     root: extendType(schema.root),
     types: objMap(schema.types, s => (
-      s.type === 'enum' ? extendEnum(s) : extendStruct(s)
+      s.type === 'enum' ? extendEnum(s) : (extendStruct(s) as StructSchema & {type: 'struct'})
     ))
   }
 }

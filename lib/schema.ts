@@ -164,6 +164,9 @@ export type AppStructField = {
 export interface AppStructSchema {
   type?: 'struct',
 
+  encode?: (obj: any) => Record<string, any>,
+  decode?: (obj: Record<string, any>) => any,
+  
   fields: Record<string, AppStructField>,
 }
 
