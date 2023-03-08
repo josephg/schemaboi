@@ -1,6 +1,6 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
-import {SimpleSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
+import {AppSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
 import { Bool, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
 import { readData } from "../lib/read.js"
 import { toBinary } from "../lib/write.js"
@@ -22,7 +22,7 @@ const testRoundTripFullSchema = (schema: Schema, input: any, expectedOutput = in
   assert.deepEqual(result, expectedOutput)
 }
 
-const testRoundTrip = (schema: SimpleSchema, input: any, expectedOutput = input) => {
+const testRoundTrip = (schema: AppSchema, input: any, expectedOutput = input) => {
   const fullSchema = extendSchema(schema)
   // console.log('fullSchema', fullSchema)
   testRoundTripFullSchema(fullSchema, input, expectedOutput)
@@ -31,7 +31,7 @@ const testRoundTrip = (schema: SimpleSchema, input: any, expectedOutput = input)
 describe('roundtrips', () => {
   describe('non objects at the root', () => {
     it('works with strings', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: String,
         types: {}
@@ -41,7 +41,7 @@ describe('roundtrips', () => {
     })
 
     it('works with lists', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'list', fieldType: prim('f64')},
         types: {}
@@ -51,7 +51,7 @@ describe('roundtrips', () => {
     })
 
     it('works with maps', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'map', keyType: String, valType: prim('f64')},
         types: {}
@@ -61,7 +61,7 @@ describe('roundtrips', () => {
     })
 
     it('works with maps using entry list decoding form', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'entryList'},
         types: {}
@@ -73,7 +73,7 @@ describe('roundtrips', () => {
     })
 
     it('works with maps using map decoding form', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'map'},
         types: {}
@@ -86,7 +86,7 @@ describe('roundtrips', () => {
 
   // *****
   it('works with simple structs', () => {
-    const schema: SimpleSchema = {
+    const schema: AppSchema = {
       id: 'Example',
       root: ref('Contact'),
       types: {
@@ -105,7 +105,7 @@ describe('roundtrips', () => {
   describe('enums', () => {
     it('simple enums', () => {
       // Numeric Enum
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: ref('Color'),
         types: {
@@ -119,7 +119,7 @@ describe('roundtrips', () => {
 
     it('enums with associated data and optional fields', () => {
       // Enum
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: ref('Color'),
         types: {
@@ -155,7 +155,7 @@ describe('roundtrips', () => {
 
     it('tags foreign variants', () => {
       // Test unknown enum variants
-      const SimpleSchema: SimpleSchema = {
+      const SimpleSchema: AppSchema = {
         id: 'Example',
         root: ref('Color'),
         types: {
@@ -193,7 +193,7 @@ describe('roundtrips', () => {
   describe('structs', () => {
     it('allows optional struct fields', () => {
       // Test nullable struct fields
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: ref('Contact'),
         types: {
@@ -231,8 +231,8 @@ describe('roundtrips', () => {
         }
       }
 
-      testRoundTripFullSchema(schema, {name: 'seph', _external: {age: 32}})
-      testRoundTripFullSchema(schema, {name: 'seph', age: 32}, {name: 'seph', _external: {age: 32}})
+      testRoundTripFullSchema(schema, {name: 'seph', _foreign: {age: 32}})
+      testRoundTripFullSchema(schema, {name: 'seph', age: 32}, {name: 'seph', _foreign: {age: 32}})
     })
 
     it('supports inlined and non-inlined booleans', () => {
@@ -289,7 +289,7 @@ describe('roundtrips', () => {
 
     describe('numerics', () => {
       it('works with default options', () => {
-        const schema: SimpleSchema = {
+        const schema: AppSchema = {
           id: 'Example',
           root: ref('NumTest'),
           types: {
@@ -332,7 +332,7 @@ describe('roundtrips', () => {
       })
 
       it('decodes bigints', () => {
-        const schema: SimpleSchema = {
+        const schema: AppSchema = {
           id: 'Example',
           root: ref('NumTest'),
           types: {
@@ -367,7 +367,7 @@ describe('roundtrips', () => {
     })
 
     it('ids', () => {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'list', fieldType: ref('IdTest')},
         types: {

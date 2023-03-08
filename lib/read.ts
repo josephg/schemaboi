@@ -45,7 +45,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   // There are essentially 3 options:
   // 1. Skip the data, returning nothing. But when used in a load-then-save use case,
   //    this will discard any foreign data.
-  // 2. Parse the data but return it in a special way - eg {_external: {/* unknown fields */}}
+  // 2. Parse the data but return it in a special way - eg {_foreign: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
   if (struct.foreign) throw Error('NYI struct is not locally recognised!')
 
@@ -79,8 +79,8 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
       : (field.defaultValue ?? null)
     if (field.foreign) {
       console.warn(`Warning: foreign field '${k}' in struct`)
-      result._external ??= {}
-      result._external[k] = v
+      result._foreign ??= {}
+      result._foreign[k] = v
     } else {
       result[field.renameFieldTo ?? k] = v
     }

@@ -1,5 +1,5 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
-import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, SimpleSchema, StructSchema, SType, WrappedPrimitive } from "./schema.js"
+import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, StructSchema, SType, WrappedPrimitive } from "./schema.js"
 import { assert, enumVariantsInUse, extendSchema, intEncoding, isPrimitive, ref } from "./utils.js"
 
 // import assert from 'assert/strict'
@@ -222,7 +222,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
       let v = val[fieldName]
 
       // External fields always use the raw field name.
-      if (field.foreign && v === undefined && val._external) v = val._external[k]
+      if (field.foreign && v === undefined && val._foreign) v = val._foreign[k]
 
       // console.log('field', k, 'inline', field.inline, 'encoding', field.encoding, 'hasValue', v != null, 'value', v)
       if (field.optional) {

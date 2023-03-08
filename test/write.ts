@@ -1,7 +1,7 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { toBinary } from '../lib/write.js'
-import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
+import { Schema, AppSchema, StructField } from '../lib/schema.js'
 import { Bool, extendSchema, prim, ref, String } from '../lib/utils.js'
 
 describe('write', () => {
@@ -29,7 +29,7 @@ describe('write', () => {
   })
 
   it('kitchen sink test', () => {
-    const schema: SimpleSchema = {
+    const schema: AppSchema = {
       id: 'Example',
       root: ref('Contact'),
       types: {
@@ -96,7 +96,7 @@ describe('write', () => {
 
   it('encodes varint when asked', () => {
     {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'u8', numericEncoding: 'le'},
         types: {}
@@ -107,7 +107,7 @@ describe('write', () => {
     }
 
     {
-      const schema: SimpleSchema = {
+      const schema: AppSchema = {
         id: 'Example',
         root: {type: 'u8', numericEncoding: 'varint'},
         types: {}

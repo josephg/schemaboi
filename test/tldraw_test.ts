@@ -1,11 +1,11 @@
-import { Schema, SimpleSchema } from "../lib/schema.js"
+import { Schema, AppSchema } from "../lib/schema.js"
 import { Bool, enumOfStrings, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
 import fs from 'fs'
 import { toBinary } from "../lib/write.js"
 import { metaSchema } from "../lib/metaschema.js"
 
 const tldrawTest = () => {
-  const testSchema: SimpleSchema = {
+  const testSchema: AppSchema = {
     id: 'Shape',
     // root: ref('Shape'),
     root: {type: 'list', fieldType: ref('Shape')},

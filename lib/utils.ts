@@ -1,4 +1,4 @@
-import { SimpleEnumSchema, SimpleStructSchema, EnumSchema, List, MapType, SimpleSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive } from "./schema.js"
+import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive } from "./schema.js"
 
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -203,7 +203,7 @@ const getType = (t: SType | Primitive): SType['type'] => (
   typeof t === 'object' ? t.type : t
 )
 
-function extendStruct(s: SimpleStructSchema): StructSchema & {type: 'struct'} {
+function extendStruct(s: AppStructSchema): StructSchema & {type: 'struct'} {
   return {
     type: 'struct',
     fields: objMapToMap(s.fields, f => ({
@@ -219,7 +219,7 @@ function extendStruct(s: SimpleStructSchema): StructSchema & {type: 'struct'} {
   }
 }
 
-function extendEnum(s: SimpleEnumSchema): EnumSchema {
+function extendEnum(s: AppEnumSchema): EnumSchema {
   return {
     type: 'enum',
     closed: s.closed ?? false,
@@ -233,7 +233,7 @@ function extendEnum(s: SimpleEnumSchema): EnumSchema {
   }
 }
 
-export function extendSchema(schema: SimpleSchema): Schema {
+export function extendSchema(schema: AppSchema): Schema {
   return {
     id: schema.id,
     root: extendType(schema.root),
@@ -302,7 +302,7 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
 
 export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
 
-export const enumOfStringsSimple = (...variants: string[]): SimpleEnumSchema => ({
+export const enumOfStringsSimple = (...variants: string[]): AppEnumSchema => ({
   type: 'enum',
   closed: false,
   numericOnly: true,

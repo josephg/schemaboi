@@ -1,7 +1,7 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { readData } from '../lib/read.js'
-import { Schema, SimpleSchema, StructField } from '../lib/schema.js'
+import { Schema, AppSchema, StructField } from '../lib/schema.js'
 import { extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 
 import {Console} from 'node:console'
@@ -52,7 +52,7 @@ describe('read', () => {
       }
     }
   
-    const appSchema: SimpleSchema = {
+    const appSchema: AppSchema = {
       id: 'Example',
       root: ref('Contact'),
       types: {
@@ -76,7 +76,7 @@ describe('read', () => {
     assert.deepEqual(output, {
       yearsOld: 123,
       address: 'unknown location',
-      _external: {name: 'seph'}
+      _foreign: {name: 'seph'}
     })
   })
 })

@@ -146,13 +146,13 @@ export interface Schema {
  * This is the stuff you need to define to make a type. It can be extended to a
  * full schema (with encoding information) via utility methods.
  */
-export interface SimpleSchema {
+export interface AppSchema {
   id: string,
   root: SType | Primitive, // TODO: Consider making this optional.
-  types: Record<string, SimpleStructSchema & {type: 'struct'} | SimpleEnumSchema>
+  types: Record<string, AppStructSchema & {type: 'struct'} | AppEnumSchema>
 }
 
-export type SimpleField = {
+export type AppStructField = {
   type: SType | Primitive, // Schema type
 
   /** If the field is missing in the data set, use this value instead of null when decoding. */
@@ -161,13 +161,13 @@ export type SimpleField = {
   renameFieldTo?: string,
 }
 
-export interface SimpleStructSchema {
+export interface AppStructSchema {
   type?: 'struct',
 
-  fields: Record<string, SimpleField>,
+  fields: Record<string, AppStructField>,
 }
 
-export interface SimpleEnumSchema {
+export interface AppEnumSchema {
   type: 'enum',
 
   closed?: boolean,
@@ -176,7 +176,7 @@ export interface SimpleEnumSchema {
 
   variants: Record<string, {
     // renameFieldTo?: string,
-    associatedData?: SimpleStructSchema,
+    associatedData?: AppStructSchema,
   } | null>,
 }
 
