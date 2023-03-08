@@ -1,6 +1,7 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, StructSchema, SType, WrappedPrimitive } from "./schema.js"
 import { assert, enumVariantsInUse, extendSchema, extendType, intEncoding, isPrimitive, ref } from "./utils.js"
+import { metaSchema } from "./metaschema.js"
 
 // import assert from 'assert/strict'
 // import {Console} from 'node:console'
@@ -52,7 +53,7 @@ const writeString = (w: WriteBuffer, str: string) => {
   // This allocates, which isn't ideal. Could use encodeInto instead but doing it this way makes the
   // length prefix much easier to place.
   const strBytes = encoder.encode(str)
-  ensureCapacity(w, 9 + strBytes.length)
+  ensureCapacity(w, MAX_INT_LEN + strBytes.length)
   w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
   w.buffer.set(strBytes, w.pos)
   w.pos += strBytes.length
@@ -276,6 +277,8 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
   // 1. Which variant we're encoding
   // 2. Any associated data for this variant
 
+  if (e.encode) val = e.encode(val)
+
   const variantName = typeof val === 'string' ? val
     : e.typeFieldOnParent != null ? parent[e.typeFieldOnParent]
     : val.type === '_unknown' ? val.data.type
@@ -358,6 +361,24 @@ export function toBinary(schema: Schema, data: any): Uint8Array {
     ids: new Map()
   }
 
+  encodeThing(writer, schema, data, schema.root)
+
+  return writer.buffer.slice(0, writer.pos)
+}
+
+export function writeOpaqueData(schema: Schema, data: any): Uint8Array {
+  const writer: WriteBuffer = {
+    buffer: new Uint8Array(32),
+    pos: 4,
+    ids: new Map()
+  }
+
+  const magicBytes = encoder.encode("SB10")
+  writer.buffer.set(magicBytes, 0)
+
+  // console.log(schema)
+  encodeThing(writer, metaSchema, schema, metaSchema.root)
+  writer.ids.clear()
   encodeThing(writer, schema, data, schema.root)
 
   return writer.buffer.slice(0, writer.pos)

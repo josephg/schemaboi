@@ -1,8 +1,9 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive } from "./schema.js"
+import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive, AppSchema } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
-import { intEncoding, enumVariantsInUse, isPrimitive, extendType } from "./utils.js"
+import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas } from "./utils.js"
+import { metaSchema } from "./metaschema.js"
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -299,4 +300,33 @@ export function readData(schema: Schema, data: Uint8Array): any {
   }
 
   return readThing(reader, schema, schema.root)
+}
+
+export function readOpaqueData(localSchema: Schema, data: Uint8Array): [Schema, any] {
+  // A SB file starts with "SB10" for schemaboi version 1.0.
+  const magic = textDecoder.decode(data.slice(0, 4))
+  if (magic !== 'SB10') throw Error('Magic bytes do not match: Expected SBXX.')
+
+  // console.log(data.buffer, data.byteOffset, data.byteLength)
+  const reader: Reader = {
+    pos: 0,
+    data: new DataView(data.buffer, data.byteOffset + 4, data.byteLength - 4),
+    ids: []
+  }
+
+  // Read the schema.
+  const remoteSchema = readThing(reader, metaSchema, metaSchema.root)
+  const mergedSchema = mergeSchemas(remoteSchema, localSchema)
+  // console.log('remote', remoteSchema)
+  // console.log('local', localSchema)
+  // console.log('merged', mergedSchema)
+
+  // Read the data.
+  reader.ids.length = 0
+  return [remoteSchema, readThing(reader, mergedSchema, mergedSchema.root)]
+}
+
+export function readOpaqueDataApp(appSchema: AppSchema, data: Uint8Array): [Schema, any] {
+  const localSchema = extendSchema(appSchema)
+  return readOpaqueData(localSchema, data)
 }

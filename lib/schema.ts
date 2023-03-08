@@ -124,6 +124,9 @@ export interface EnumSchema {
   numericOnly: boolean,
   typeFieldOnParent?: string,
 
+  encode?: (obj: any) => Record<string, any>,
+  // decode?: (obj: Record<string, any>) => any,
+
   variants: Map<string, EnumVariant>,
 
   // usedVariants?: string[], // TODO: Consider caching this.
@@ -177,6 +180,9 @@ export interface AppEnumSchema {
   closed?: boolean,
   numericOnly: boolean,
   typeFieldOnParent?: string,
+
+  encode?: (obj: any) => Record<string, any>,
+  // decode?: (obj: Record<string, any>) => any,
 
   variants: Record<string, {
     // renameFieldTo?: string,

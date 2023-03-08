@@ -2,9 +2,10 @@
 import 'mocha'
 import {AppSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
 import { Bool, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
-import { readData } from "../lib/read.js"
-import { toBinary } from "../lib/write.js"
+import { readData, readOpaqueData } from "../lib/read.js"
+import { toBinary, writeOpaqueData } from "../lib/write.js"
 
+import fs from 'fs'
 import * as assert from 'assert/strict'
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -20,6 +21,16 @@ const testRoundTripFullSchema = (schema: Schema, input: any, expectedOutput = in
   // console.log('result', result)
 
   assert.deepEqual(result, expectedOutput)
+
+
+  {
+    const opaque = writeOpaqueData(schema, input)
+    // console.log('opaque', opaque)
+    // fs.writeFileSync('tmp_test.sb', opaque)
+    const [fileSchema, result] = readOpaqueData(schema, opaque)
+    assert.deepEqual(result, expectedOutput)
+  }
+
 }
 
 const testRoundTrip = (schema: AppSchema, input: any, expectedOutput = input) => {

@@ -91,12 +91,14 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
 
     fields: mergeMapsAll(remote.fields, local.fields, (remoteF, localF): StructField => {
       // Check the fields are compatible.
-      if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
-        throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
-      }
+      // if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
+      //   throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
+      // }
 
       return {
-        type: localF?.type ?? remoteF!.type,
+        type: localF == null ? remoteF!.type
+          : remoteF == null ? localF!.type
+          : mergeTypes(remoteF.type, localF.type),
         defaultValue: localF?.defaultValue,
         foreign: localF ? (localF.foreign ?? false) : true,
         renameFieldTo: localF?.renameFieldTo,
@@ -128,6 +130,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     closed: remote.closed || local.closed,
     numericOnly: local.numericOnly,
     typeFieldOnParent: local.typeFieldOnParent,
+    encode: local.encode ?? undefined,
     variants: new Map,
   }
 
@@ -154,6 +157,34 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
 }
 
 
+function mergeTypes(remote: SType | string, local: SType | string): SType {
+  remote = extendType(remote)
+  local = extendType(local)
+
+  if (!typesShallowEq(remote, local)) throw Error('Cannot merge disperate types')
+
+  if (isInt(remote)) {
+    return {
+      type: remote.type,
+      numericEncoding: intEncoding(remote),
+      decodeAsBigInt: (local as IntPrimitive).decodeAsBigInt ?? false
+    }
+  } else if (remote.type === 'list') {
+    return {type: 'list', fieldType: mergeTypes(remote.fieldType, (local as List).fieldType) }
+  } else if (remote.type === 'map') {
+    const l = local as MapType
+    return {
+      type: 'map',
+      keyType: mergeTypes(remote.keyType, l.keyType),
+      valType: mergeTypes(remote.valType, l.valType),
+      decodeForm: l.decodeForm ?? 'object'
+    }
+  } else {
+    // For refs and simple primitives, we have nothing more to do here.
+    return remote
+  }
+}
+
 /**
  * Merge the schema found on disk with the local schema.
  *
@@ -165,11 +196,11 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
  */
 export function mergeSchemas(remote: Schema, local: Schema): Schema {
   if (remote.id != local.id) throw Error('Incompatible schemas')
-  if (!typesShallowEq(remote.root, local.root)) throw Error('Incompatible root elements')
 
   return {
     id: local.id,
-    root: remote.root,
+    // root: remote.root,
+    root: mergeTypes(remote.root, local.root),
     types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructOrEnum => {
       if (aa == null) return bb!
       if (bb == null) return {
@@ -220,9 +251,7 @@ function extendField(f: AppStructField): StructField {
 
 function extendStruct(s: AppStructSchema): StructSchema {
   return {
-    ...s, // Copy encode and decode. We'll rewrite fields.
-    // encode: s.encode,
-    // decode: s.decode,
+    ...s, // Copy encode and decode.
     fields: objMapToMap(s.fields, f => (
       typeof f === 'string'
         ? extendField({type: extendType(f)})
@@ -237,6 +266,8 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
     closed: s.closed ?? false,
     numericOnly: s.numericOnly,
     typeFieldOnParent: s.typeFieldOnParent,
+    encode: s.encode,
+    // decode: s.decode,
     variants: objMapToMap(s.variants, (v): EnumVariant => ({
       associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
       skip: false,
@@ -279,39 +310,6 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
     // Other cases (when added) will generate a type error.
   }
 }
-
-// export const structEq = (a: StructSchema | SimpleStructSchema, b: StructSchema | SimpleStructSchema): boolean => {
-//   for (const k of mergedKeys(a.fields, b.fields)) {
-//     let af = a.fields[k]
-//     let bf = b.fields[k]
-//     if (af == null || bf == null) return false
-
-//     if (!typesShallowEq(af.type, bf.type)) return false
-//   }
-
-//   // console.log('struct eq')
-
-//   return true
-// }
-
-// type Oracle = Record<string, StructSchema | SimpleStructSchema>
-// export const typesEq = (a: SType, b: SType, aOracle: Oracle, bOracle: Oracle): boolean => {
-//   if (a === b) return true
-//   if (typeof a === 'string' || typeof b === 'string') return false
-//   if (a.type !== b.type) return false
-
-//   switch (a.type) {
-//     case 'ref':
-//       if (a.key !== (b as Ref).key) return false
-//       return structEq(aOracle[a.key], bOracle[a.key])
-//     case 'list':
-//       return typesEq(a.fieldType, (b as List).fieldType, aOracle, bOracle)
-//     case 'map':
-//       const bb = b as MapType
-//       return a.keyType === bb.keyType && typesEq(a.valType, bb.valType, aOracle, bOracle)
-//     // Other cases (when added) will generate a type error.
-//   }
-// }
 
 export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
 
@@ -422,6 +420,8 @@ const fillStructDefaults = (s: StructSchema, foreign: boolean) => {
 const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
   s.foreign ??= foreign
   s.typeFieldOnParent ??= undefined
+  s.encode ??= undefined
+  // s.decode ??= undefined
   for (const variant of s.variants.values()) {
     variant.associatedData ??= undefined
     variant.foreign ??= foreign

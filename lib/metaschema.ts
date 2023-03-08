@@ -1,7 +1,7 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
 import {EnumVariant, IntPrimitive, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, enumOfStrings, fillSchemaDefaults, Id, intEncoding, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
+import { Bool, enumOfStrings, extendType, fillSchemaDefaults, Id, intEncoding, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
 import { toBinary } from "./write.js"
 import { readData } from "./read.js"
 // import * as assert from 'assert/strict'
@@ -58,6 +58,7 @@ export const metaSchema: Schema = {
       type: 'enum',
       closed: false,
       numericOnly: false,
+      encode: extendType, // To support lazy strings.
       variants: new Map<string, EnumVariant>([
         ...['bool', 'string', 'binary', 'id', 'f32', 'f64'].map((t): [string, EnumVariant] => [t, {}]),
         ...['u8', 'u16', 'u32', 'u64', 'u128', 's8', 's16', 's32', 's64', 's128'].map((t): [string, EnumVariant] => [t, {
