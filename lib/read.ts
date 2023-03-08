@@ -2,7 +2,7 @@
 
 import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
-import { intEncoding, enumVariantsInUse, isPrimitive } from "./utils.js"
+import { intEncoding, enumVariantsInUse, isPrimitive, extendType } from "./utils.js"
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -256,26 +256,28 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       // console.log('length', length)
       const result = []
       for (let i = 0; i < length; i++) {
-        result.push(readThing(r, schema, type.fieldType))
+        result.push(readThing(r, schema, extendType(type.fieldType)))
       }
       return result
     }
     case 'map': {
       const length = readVarInt(r)
+      const keyType = extendType(type.keyType)
+      const valType = extendType(type.valType)
       if (type.decodeForm == null || type.decodeForm == 'object') {
-        if (type.keyType.type !== 'string' && type.keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
+        if (keyType.type !== 'string' && keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
         const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, type.keyType)
-          const v = readThing(r, schema, type.valType)
+          const k = readPrimitive(r, keyType)
+          const v = readThing(r, schema, valType)
           result[k] = v
         }
         return result
       } else {
         const entries: [number | string | boolean, any][] = []
         for (let i = 0; i < length; i++) {
-          const k = readThing(r, schema, type.keyType)
-          const v = readThing(r, schema, type.valType)
+          const k = readThing(r, schema, keyType)
+          const v = readThing(r, schema, valType)
           entries.push([k, v])
         }
         return type.decodeForm == 'entryList'

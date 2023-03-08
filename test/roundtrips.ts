@@ -43,17 +43,17 @@ describe('roundtrips', () => {
     it('works with lists', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'list', fieldType: prim('f64')},
+        root: {type: 'list', fieldType: 'f64'},
         types: {}
       }
-    
+
       testRoundTrip(schema, [1.1, 2.2, 3,3])
     })
 
     it('works with maps', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: String, valType: prim('f64')},
+        root: {type: 'map', keyType: 'string', valType: 'f64'},
         types: {}
       }
     
@@ -63,7 +63,7 @@ describe('roundtrips', () => {
     it('works with maps using entry list decoding form', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'entryList'},
+        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'entryList'},
         types: {}
       }
 
@@ -75,7 +75,7 @@ describe('roundtrips', () => {
     it('works with maps using map decoding form', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: String, valType: prim('f64'), decodeForm: 'map'},
+        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'map'},
         types: {}
       }
     
@@ -133,9 +133,9 @@ describe('roundtrips', () => {
                 associatedData: {
                   type: 'struct',
                   fields: {
-                    r: {type: prim('u8'), optional: true},
-                    g: {type: prim('u8'), optional: true},
-                    b: {type: prim('u8'), optional: true},
+                    r: {type: 'u8', optional: true},
+                    g: {type: 'u8', optional: true},
+                    b: {type: 'u8', optional: true},
                   }
                 }
               }
@@ -167,12 +167,7 @@ describe('roundtrips', () => {
               Red: {},
               RGB: {
                 associatedData: {
-                  type: 'struct',
-                  fields: {
-                    r: {type: prim('u8')},
-                    g: {type: prim('u8')},
-                    b: {type: prim('u8')},
-                  }
+                  fields: { r: 'u8', g: 'u8', b: 'u8' }
                 }
               }
             }
@@ -202,7 +197,7 @@ describe('roundtrips', () => {
             fields: {
               name: {type: 'string', optional: true},
               age: {type: 'u32', optional: true},
-              addresses: {type: {type: 'list', fieldType: String}, optional: true}
+              addresses: {type: {type: 'list', fieldType: 'string'}, optional: true}
               // address: {type: String},
             }
           }
@@ -369,7 +364,7 @@ describe('roundtrips', () => {
     it('ids', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'list', fieldType: ref('IdTest')},
+        root: {type: 'list', fieldType: 'IdTest'},
         types: {
           IdTest: {
             type: 'struct',

@@ -195,7 +195,7 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   }
 }
 
-const extendType = (t: SType | Primitive | string): SType => (
+export const extendType = (t: SType | Primitive | string): SType => (
   typeof t === 'object'
     ? t
     : (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
@@ -269,10 +269,11 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
     case 'ref':
       return a.key === (b as Ref).key
     case 'list':
-      return typesShallowEq(a.fieldType, (b as List).fieldType)
+      return typesShallowEq(extendType(a.fieldType), extendType((b as List).fieldType))
     case 'map':
       const bb = b as MapType
-      return typesShallowEq(a.keyType, bb.keyType) && typesShallowEq(a.valType, bb.valType)
+      return typesShallowEq(extendType(a.keyType), extendType(bb.keyType))
+        && typesShallowEq(extendType(a.valType), extendType(bb.valType))
     default: return true // They'd better be primitives!
 
     // Other cases (when added) will generate a type error.
@@ -392,8 +393,10 @@ export const enumVariantsInUse = (e: EnumSchema): string[] => (
 const fillSTypeDefaults = (t: SType) => {
   if (t.type === 'map') {
     t.decodeForm ??= 'object'
+    t.valType = extendType(t.valType)
     fillSTypeDefaults(t.valType)
   } else if (t.type === 'list') {
+    t.fieldType = extendType(t.fieldType)
     fillSTypeDefaults(t.fieldType)
   } else if (isInt(t)) {
     t.decodeAsBigInt ??= false
