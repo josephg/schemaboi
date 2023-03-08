@@ -148,12 +148,12 @@ export interface Schema {
  */
 export interface AppSchema {
   id: string,
-  root: SType | Primitive, // TODO: Consider making this optional.
+  root: SType | Primitive | string, // TODO: Consider making this optional.
   types: Record<string, AppStructSchema & {type: 'struct'} | AppEnumSchema>
 }
 
 export type AppStructField = {
-  type: SType | Primitive, // Schema type
+  type: SType | Primitive | string, // Schema type
 
   /** If the field is missing in the data set, use this value instead of null when decoding. */
   defaultValue?: any,
@@ -166,8 +166,9 @@ export interface AppStructSchema {
 
   encode?: (obj: any) => Record<string, any>,
   decode?: (obj: Record<string, any>) => any,
-  
-  fields: Record<string, AppStructField>,
+
+  // Fields can be specified as complex objects, or simply strings.
+  fields: Record<string, AppStructField | Primitive | string>,
 }
 
 export interface AppEnumSchema {

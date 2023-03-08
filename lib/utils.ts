@@ -1,4 +1,4 @@
-import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive } from "./schema.js"
+import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive, AppStructField } from "./schema.js"
 
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -195,29 +195,39 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   }
 }
 
-const extendType = (t: SType | Primitive): SType => (
-  typeof t === 'object' ? t : {type: t}
+const extendType = (t: SType | Primitive | string): SType => (
+  typeof t === 'object'
+    ? t
+    : (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
 )
 
-const getType = (t: SType | Primitive): SType['type'] => (
+// This function is a mess, but its only used in one place (below) and there its fine??
+const getType = (t: SType | Primitive | string): string => (
   typeof t === 'object' ? t.type : t
 )
+
+function extendField(f: AppStructField): StructField {
+  return {
+    type: extendType(f.type),
+    defaultValue: f.defaultValue,
+    inline: getType(f.type) === 'bool' ? true : false, // Inline booleans.
+    optional: f.optional ?? false,
+    skip: false,
+    // encoding: f.optional ? 'optional' : 'required',
+    renameFieldTo: f.renameFieldTo,
+  }
+}
 
 function extendStruct(s: AppStructSchema): StructSchema {
   return {
     ...s, // Copy encode and decode. We'll rewrite fields.
     // encode: s.encode,
     // decode: s.decode,
-    fields: objMapToMap(s.fields, f => ({
-      type: extendType(f.type),
-      defaultValue: f.defaultValue,
-      inline: getType(f.type) === 'bool' ? true : false, // Inline booleans.
-      optional: f.optional ?? false,
-      skip: false,
-      // encoding: f.optional ? 'optional' : 'required',
-      renameFieldTo: f.renameFieldTo,
-    })),
-    // encodingOrder: Object.keys(s.fields),
+    fields: objMapToMap(s.fields, f => (
+      typeof f === 'string'
+        ? extendField({type: extendType(f)})
+        : extendField(f)
+    )),
   }
 }
 

@@ -33,7 +33,7 @@ describe('roundtrips', () => {
     it('works with strings', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: String,
+        root: 'string',
         types: {}
       }
 
@@ -88,12 +88,12 @@ describe('roundtrips', () => {
   it('works with simple structs', () => {
     const schema: AppSchema = {
       id: 'Example',
-      root: ref('Contact'),
+      root: 'Contact',
       types: {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: String},
+            name: 'string',
           }
         }
       }
@@ -107,7 +107,7 @@ describe('roundtrips', () => {
       // Numeric Enum
       const schema: AppSchema = {
         id: 'Example',
-        root: ref('Color'),
+        root: 'Color',
         types: {
           Color: enumOfStringsSimple('Red', 'Blue', 'Green'),
         }
@@ -121,7 +121,7 @@ describe('roundtrips', () => {
       // Enum
       const schema: AppSchema = {
         id: 'Example',
-        root: ref('Color'),
+        root: 'Color',
         types: {
           Color: {
             type: 'enum',
@@ -157,7 +157,7 @@ describe('roundtrips', () => {
       // Test unknown enum variants
       const SimpleSchema: AppSchema = {
         id: 'Example',
-        root: ref('Color'),
+        root: 'Color',
         types: {
           Color: {
             type: 'enum',
@@ -195,13 +195,13 @@ describe('roundtrips', () => {
       // Test nullable struct fields
       const schema: AppSchema = {
         id: 'Example',
-        root: ref('Contact'),
+        root: 'Contact',
         types: {
           Contact: {
             type: 'struct',
             fields: {
-              name: {type: String, optional: true},
-              age: {type: prim('u32'), optional: true},
+              name: {type: 'string', optional: true},
+              age: {type: 'u32', optional: true},
               addresses: {type: {type: 'list', fieldType: String}, optional: true}
               // address: {type: String},
             }
@@ -291,24 +291,24 @@ describe('roundtrips', () => {
       it('works with default options', () => {
         const schema: AppSchema = {
           id: 'Example',
-          root: ref('NumTest'),
+          root: 'NumTest',
           types: {
             NumTest: {
               type: 'struct',
               fields: {
                 u8V: {type: {type: 'u8', numericEncoding: 'varint'}},
                 s8V: {type: {type: 's8', numericEncoding: 'varint'}},
-                u8: {type: prim('u8')},
-                u16: {type: prim('u16')},
-                u32: {type: prim('u32')},
-                u64: {type: prim('u64')},
-                u128: {type: prim('u128')},
+                u8: 'u8',
+                u16: 'u16',
+                u32: 'u32',
+                u64: 'u64',
+                u128: 'u128',
 
-                s8: {type: prim('s8')},
-                s16: {type: prim('s16')},
-                s32: {type: prim('s32')},
-                s64: {type: prim('s64')},
-                s128: {type: prim('s128')},
+                s8: 's8',
+                s16: 's16',
+                s32: 's32',
+                s64: 's64',
+                s128: 's128',
               }
             }
           }
@@ -334,7 +334,7 @@ describe('roundtrips', () => {
       it('decodes bigints', () => {
         const schema: AppSchema = {
           id: 'Example',
-          root: ref('NumTest'),
+          root: 'NumTest',
           types: {
             NumTest: {
               type: 'struct',
@@ -374,8 +374,8 @@ describe('roundtrips', () => {
           IdTest: {
             type: 'struct',
             fields: {
-              foo: {type: Id},
-              bar: {type: Id},
+              foo: 'id',
+              bar: 'id',
             }
           }
         }

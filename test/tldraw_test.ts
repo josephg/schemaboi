@@ -120,7 +120,7 @@ const tldrawTest = () => {
     }
   }
 
-  console.log('\n\n')
+  // console.log('\n\n')
   const shapes = JSON.parse(fs.readFileSync('./tldraw-example.json', 'utf8')).data.shape
   // console.log(shapes)
   const fullSchema = extendSchema(testSchema)
