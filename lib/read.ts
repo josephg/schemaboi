@@ -145,7 +145,9 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
   // TODO: The logic for this feels kinda sketch.
   if (e.numericOnly && associatedData != null) throw Error('Cannot decode associated data with numeric enum')
 
-  if (variant.foreign) {
+  if (e.decode) {
+    return e.decode(variantName, associatedData)
+  } else if (variant.foreign) {
     // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
     return {type: '_unknown', data: {type: variantName, ...associatedData}}
   } else if (e.typeFieldOnParent != null) {

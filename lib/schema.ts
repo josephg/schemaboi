@@ -125,7 +125,7 @@ export interface EnumSchema {
   typeFieldOnParent?: string,
 
   encode?: (obj: any) => Record<string, any>,
-  // decode?: (obj: Record<string, any>) => any,
+  decode?: (variant: string, data: Record<string, any> | null) => any,
 
   variants: Map<string, EnumVariant>,
 
@@ -178,18 +178,20 @@ export interface AppEnumSchema {
   type: 'enum',
 
   exhaustive?: boolean,
-  numericOnly: boolean,
+  numericOnly?: boolean,
   typeFieldOnParent?: string,
 
   encode?: (obj: any) => Record<string, any>,
-  // decode?: (obj: Record<string, any>) => any,
+  decode?: (variant: string, data: Record<string, any> | null) => any,
 
   variants: Record<string, {
     // renameFieldTo?: string,
-    associatedData?: AppStructSchema,
-  } | null> | string[],
+    associatedData: AppStructSchema,
+  } | {
+    // Simpler way to express fields.
+    fields: Record<string, AppStructField | Primitive | string>
+  } | null | true> | string[], // null or true are both ignored the same.
 }
-
 
 export type EnumObject = string
   | {type?: string, [k: string]: any}

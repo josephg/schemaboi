@@ -325,6 +325,7 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
 }
 
 function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, parent?: any) {
+  // console.log('encodething', 'pos', w.pos, 'type', type.type, 'val', val)
   switch (type.type) {
     case 'ref': {
       const innerType = schema.types[type.key]
@@ -402,4 +403,8 @@ export function write(schema: Schema, data: any): Uint8Array {
   encodeThing(writer, schema, data, schema.root)
 
   return writer.buffer.slice(0, writer.pos)
+}
+
+export function writeAppSchema(schema: AppSchema, data: any): Uint8Array {
+  return write(extendSchema(schema), data)
 }

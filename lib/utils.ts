@@ -131,6 +131,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     numericOnly: local.numericOnly,
     typeFieldOnParent: local.typeFieldOnParent,
     encode: local.encode ?? undefined,
+    decode: local.decode ?? undefined,
     variants: new Map,
   }
 
@@ -264,17 +265,20 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
   const variants = Array.isArray(s.variants)
     ? new Map(s.variants.map((s): [string, EnumVariant] => [s, {}]))
     : objMapToMap(s.variants, (v): EnumVariant => ({
-        associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
+        associatedData: (v == null || v === true) ? undefined
+          : 'associatedData' in v ? extendStruct(v.associatedData)
+          : 'fields' in v ? extendStruct(v)
+          : undefined,
         skip: false,
       }))
 
   return {
     type: 'enum',
     exhaustive: s.exhaustive ?? false,
-    numericOnly: s.numericOnly,
+    numericOnly: s.numericOnly ?? false,
     typeFieldOnParent: s.typeFieldOnParent,
     encode: s.encode,
-    // decode: s.decode,
+    decode: s.decode,
     variants,
   }
 }
@@ -424,7 +428,7 @@ const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
   s.foreign ??= foreign
   s.typeFieldOnParent ??= undefined
   s.encode ??= undefined
-  // s.decode ??= undefined
+  s.decode ??= undefined
   for (const variant of s.variants.values()) {
     variant.associatedData ??= undefined
     variant.foreign ??= foreign

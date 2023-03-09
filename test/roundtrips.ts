@@ -143,8 +143,8 @@ describe('roundtrips', () => {
             type: 'enum',
             numericOnly: false,
             variants: {
-              Blue: {},
-              Red: {},
+              Blue: null,
+              Red: null,
               RGB: {
                 associatedData: {
                   type: 'struct',
@@ -179,8 +179,8 @@ describe('roundtrips', () => {
             type: 'enum',
             numericOnly: false,
             variants: {
-              Blue: {},
-              Red: {},
+              Blue: true,
+              Red: true,
               RGB: {
                 associatedData: {
                   fields: { r: 'u8', g: 'u8', b: 'u8' }
