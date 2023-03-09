@@ -470,6 +470,30 @@ export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
   return s
 }
 
+/** This is a dirty hack for when we want to use a file's schema to read it "raw"
+ */
+export function setEverythingLocal(s: Schema) {
+  for (const k in s.types) {
+    const t = s.types[k]
+    t.foreign = false
+    if (t.type === 'struct') {
+      for (const f of t.fields.values()) {
+        f.foreign = false
+      }
+    } else {
+      for (const v of t.variants.values()) {
+        v.foreign = false
+        if (v.associatedData) {
+          v.associatedData.foreign = false
+          for (const f of v.associatedData.fields.values()) {
+            f.foreign = false
+          }
+        }
+      }
+    }
+  }
+}
+
 export const primitiveTypes: Primitive[] = [
   'bool',
   'u8', 'u16', 'u32', 'u64', 'u128',

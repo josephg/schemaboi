@@ -6,12 +6,12 @@ import { metaSchema } from "../lib/metaschema.js"
 import { readRaw } from "../lib/read.js"
 import * as assert from 'assert/strict'
 
-import {Console} from 'node:console'
-const console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: null}
-})
+// import {Console} from 'node:console'
+// const console = new Console({
+//   stdout: process.stdout,
+//   stderr: process.stderr,
+//   inspectOptions: {depth: null}
+// })
 
 const tldrawTest = () => {
   const testSchema: AppSchema = {

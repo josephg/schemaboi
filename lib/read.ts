@@ -2,7 +2,7 @@
 
 import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive, AppSchema } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
-import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas } from "./utils.js"
+import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -48,7 +48,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   //    this will discard any foreign data.
   // 2. Parse the data but return it in a special way - eg {_foreign: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
-  if (struct.foreign) throw Error('NYI struct is not locally recognised!')
+  if (struct.foreign) {
+    console.error('in struct:', struct)
+    throw Error(`Foreign struct is not locally recognised!`)
+  }
 
   let bitPattern = 0
   let nextBit = 8
@@ -249,6 +252,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
   switch (type.type) {
     case 'ref': {
       const inner = schema.types[type.key]
+      if (inner.foreign) throw Error('Cannot read foreign struct ' + type.key)
       if (inner.type === 'struct') return readStruct(r, schema, inner)
       else if (inner.type === 'enum') return readEnum(r, schema, inner, parent)
       else { const exhaustiveCheck: never = inner }
@@ -321,7 +325,9 @@ function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schem
 
   // Read the schema.
   const remoteSchema = readThing(reader, metaSchema, metaSchema.root)
+  // console.log(remoteSchema)
   const mergedSchema = localSchema == null ? remoteSchema : mergeSchemas(remoteSchema, localSchema)
+  if (localSchema == null) setEverythingLocal(mergedSchema)
 
   // Read the data.
   reader.ids.length = 0

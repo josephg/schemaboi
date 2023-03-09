@@ -1,14 +1,14 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import * as fs from 'fs'
-import { toBinary, metaSchema, readData } from '../lib/index.js'
+import { writeRaw, metaSchema, readRaw } from '../lib/index.js'
 import { fillSchemaDefaults, mergeSchemas } from '../lib/utils.js'
 
 describe('metaschema', () => {
   it('can parse itself', () => {
 
-    const bytes = toBinary(metaSchema, metaSchema)
-    const remoteSchema = readData(metaSchema, bytes)
+    const bytes = writeRaw(metaSchema, metaSchema)
+    const remoteSchema = readRaw(metaSchema, bytes)
     // console.log(remoteSchema)
     fillSchemaDefaults(metaSchema, false)
     // fillSchemaDefaults(rm, false)
