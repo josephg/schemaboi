@@ -292,7 +292,11 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
   }
 }
 
-export function readData(schema: Schema, data: Uint8Array): any {
+/**
+ * This is a low level method for reading data. It simply reads the incoming data
+ * using the provided schema.
+ */
+export function readRaw(schema: Schema, data: Uint8Array): any {
   const reader: Reader = {
     pos: 0,
     data: new DataView(data.buffer, data.byteOffset, data.byteLength),
@@ -302,12 +306,11 @@ export function readData(schema: Schema, data: Uint8Array): any {
   return readThing(reader, schema, schema.root)
 }
 
-export function readOpaqueData(localSchema: Schema, data: Uint8Array): [Schema, any] {
+function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schema, any] {
   // A SB file starts with "SB10" for schemaboi version 1.0.
   const magic = textDecoder.decode(data.slice(0, 4))
   if (magic !== 'SB10') throw Error('Magic bytes do not match: Expected SBXX.')
 
-  // console.log(data.buffer, data.byteOffset, data.byteLength)
   const reader: Reader = {
     pos: 0,
     data: new DataView(data.buffer, data.byteOffset + 4, data.byteLength - 4),
@@ -316,17 +319,22 @@ export function readOpaqueData(localSchema: Schema, data: Uint8Array): [Schema, 
 
   // Read the schema.
   const remoteSchema = readThing(reader, metaSchema, metaSchema.root)
-  const mergedSchema = mergeSchemas(remoteSchema, localSchema)
-  // console.log('remote', remoteSchema)
-  // console.log('local', localSchema)
-  // console.log('merged', mergedSchema)
+  const mergedSchema = localSchema == null ? remoteSchema : mergeSchemas(remoteSchema, localSchema)
 
   // Read the data.
   reader.ids.length = 0
   return [remoteSchema, readThing(reader, mergedSchema, mergedSchema.root)]
 }
 
-export function readOpaqueDataApp(appSchema: AppSchema, data: Uint8Array): [Schema, any] {
+export function read(localSchema: Schema, data: Uint8Array): [Schema, any] {
+  return readOpaqueDataRaw(localSchema, data)
+}
+
+export function readAppSchema(appSchema: AppSchema, data: Uint8Array): [Schema, any] {
   const localSchema = extendSchema(appSchema)
-  return readOpaqueData(localSchema, data)
+  return readOpaqueDataRaw(localSchema, data)
+}
+
+export function readWithoutSchema(data: Uint8Array): [Schema, any] {
+  return readOpaqueDataRaw(null, data)
 }

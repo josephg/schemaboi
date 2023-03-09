@@ -2,8 +2,8 @@
 
 import {EnumVariant, IntPrimitive, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
 import { Bool, enumOfStrings, extendType, fillSchemaDefaults, Id, intEncoding, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
-import { toBinary } from "./write.js"
-import { readData } from "./read.js"
+import { writeRaw } from "./write.js"
+import { readRaw } from "./read.js"
 // import * as assert from 'assert/strict'
 // import * as fs from 'fs'
 // import {Console} from 'node:console'

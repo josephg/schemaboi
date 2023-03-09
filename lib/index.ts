@@ -1,5 +1,5 @@
 export * from './schema.js'
-export {readData} from './read.js'
-export {toBinary} from './write.js'
+export {readRaw as readData, read as readOpaqueData, readAppSchema as readOpaqueDataApp} from './read.js'
+export {writeRaw as toBinary, write as writeOpaqueData} from './write.js'
 export {mergeSchemas, extendSchema, ref} from './utils.js'
 export {metaSchema} from './metaschema.js'

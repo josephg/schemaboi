@@ -1,6 +1,6 @@
 import 'mocha'
 import * as assert from 'assert/strict'
-import { readData } from '../lib/read.js'
+import { readRaw } from '../lib/read.js'
 import { Schema, AppSchema, StructField } from '../lib/schema.js'
 import { extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 
@@ -30,7 +30,7 @@ describe('read', () => {
     }
 
     const data = new Uint8Array([ 123, 4, 115, 101, 112, 104 ])
-    const output = readData(schema, data)
+    const output = readRaw(schema, data)
     assert.deepEqual(output, {age: 123, name: 'seph'})
   })
 
@@ -72,7 +72,7 @@ describe('read', () => {
     // console.log(extendSchema(appSchema))
     const mergedSchema = mergeSchemas(fileSchema, extendSchema(appSchema))
     // console.log(mergedSchema)
-    const output = readData(mergedSchema, b)
+    const output = readRaw(mergedSchema, b)
     assert.deepEqual(output, {
       yearsOld: 123,
       address: 'unknown location',

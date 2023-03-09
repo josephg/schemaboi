@@ -354,7 +354,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
   }
 }
 
-export function toBinary(schema: Schema, data: any): Uint8Array {
+export function writeRaw(schema: Schema, data: any): Uint8Array {
   const writer: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 0,
@@ -366,7 +366,7 @@ export function toBinary(schema: Schema, data: any): Uint8Array {
   return writer.buffer.slice(0, writer.pos)
 }
 
-export function writeOpaqueData(schema: Schema, data: any): Uint8Array {
+export function write(schema: Schema, data: any): Uint8Array {
   const writer: WriteBuffer = {
     buffer: new Uint8Array(32),
     pos: 4,

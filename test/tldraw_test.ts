@@ -1,9 +1,9 @@
 import { Schema, AppSchema } from "../lib/schema.js"
 import { enumOfStringsSimple, extendSchema, ref, fillSchemaDefaults } from "../lib/utils.js"
 import fs from 'fs'
-import { toBinary } from "../lib/write.js"
+import { writeRaw, write } from "../lib/write.js"
 import { metaSchema } from "../lib/metaschema.js"
-import { readData } from "../lib/read.js"
+import { readRaw } from "../lib/read.js"
 import * as assert from 'assert/strict'
 
 import {Console} from 'node:console'
@@ -17,19 +17,19 @@ const tldrawTest = () => {
   const testSchema: AppSchema = {
     id: 'Shape',
     // root: ref('Shape'),
-    root: {type: 'list', fieldType: ref('Shape')},
+    root: {type: 'list', fieldType: 'Shape'},
     types: {
       Shape: {
         type: 'struct',
         fields: {
-          x: {type: 'f32'},
-          y: {type: 'f32'},
-          rotation: {type: 'f32'},
-          id: {type: 'id'},
-          parentId: {type: 'id'},
-          index: {type: 'string'},
-          typeName: {type: ref('ShapeType')},
-          props: {type: ref('Props')},
+          x: 'f32',
+          y: 'f32',
+          rotation: 'f32',
+          id: 'id',
+          parentId: 'id',
+          index: 'string',
+          typeName: 'ShapeType',
+          props: 'Props',
           // {key: 'type', valType: enumOfStrings(['geo', 'arrow', 'text'])},
         }
       },
@@ -126,8 +126,9 @@ const tldrawTest = () => {
   const fullSchema = extendSchema(testSchema)
   fillSchemaDefaults(fullSchema, true)
 
-  const sOut = toBinary(metaSchema, fullSchema)
-  const mm = readData(metaSchema, sOut)
+  const sOut = writeRaw(metaSchema, fullSchema)
+  console.log('Schema size', sOut.length)
+  const mm = readRaw(metaSchema, sOut)
   fillSchemaDefaults(mm, true)
   // console.log(mm)
   // console.log(fullSchema)
@@ -138,10 +139,12 @@ const tldrawTest = () => {
   fs.writeFileSync('tld_schema.scb', sOut)
 
 
+  let out = write(fullSchema, shapes)
+
   // let out = toBinary(fullSchema, shapes)
   // // const out = readData(testSchema, shapes)
-  // console.log('Output length', out.length)
-  // fs.writeFileSync('tld2.scb', out)
+  console.log('Output length', out.length)
+  fs.writeFileSync('tld2.scb', out)
 
 }
 

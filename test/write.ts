@@ -1,6 +1,6 @@
 import 'mocha'
 import * as assert from 'assert/strict'
-import { toBinary } from '../lib/write.js'
+import { writeRaw } from '../lib/write.js'
 import { Schema, AppSchema, StructField } from '../lib/schema.js'
 import { Bool, extendSchema, prim, ref, String } from '../lib/utils.js'
 
@@ -23,7 +23,7 @@ describe('write', () => {
   
     const data = {name: 'seph', age: 21}
 
-    const out = toBinary(schema, data)
+    const out = writeRaw(schema, data)
     // console.log('out', out)
     assert.deepEqual(out, new Uint8Array([1, 4, 115, 101, 112, 104, 21]))
   })
@@ -80,7 +80,7 @@ describe('write', () => {
     // console.log('schema', extendSchema(schema))
     // console.log(toBinary(extendSchema(schema), data))
 
-    const out = toBinary(extendSchema(schema), data)
+    const out = writeRaw(extendSchema(schema), data)
     // console.log(out)
 
     const expected = new Uint8Array([
@@ -102,7 +102,7 @@ describe('write', () => {
         types: {}
       }
 
-      const out = toBinary(extendSchema(schema), 205)
+      const out = writeRaw(extendSchema(schema), 205)
       assert.deepEqual(out, new Uint8Array([205]))
     }
 
@@ -113,7 +113,7 @@ describe('write', () => {
         types: {}
       }
 
-      const out = toBinary(extendSchema(schema), 205)
+      const out = writeRaw(extendSchema(schema), 205)
       assert.deepEqual(out, new Uint8Array([0x80, 77]))
     }
   })

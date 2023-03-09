@@ -1,8 +1,8 @@
 import * as assert from 'assert/strict'
 import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
 import { enumOfStrings, enumOfStringsSimple, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String } from '../lib/utils.js'
-import { writeOpaqueData } from '../lib/write.js'
-import { readOpaqueData } from '../lib/read.js'
+import { write } from '../lib/write.js'
+import { read } from '../lib/read.js'
 // import {Console} from 'node:console'
 // const console = new Console({
 //   stdout: process.stdout,
@@ -106,8 +106,8 @@ describe('merging', () => {
 
     it('merges via opaque data', () => {
       // const data = writeOpaqueData(appSchema, {age: 12, address: 'somewhere'})
-      const data = writeOpaqueData(fileSchema, {name: 'simone', age: 41})
-      const [schema, loaded] = readOpaqueData(appSchema, data)
+      const data = write(fileSchema, {name: 'simone', age: 41})
+      const [schema, loaded] = read(appSchema, data)
       assert.deepEqual(loaded, {yearsOld: 41, address: 'unknown location', _foreign: {name: 'simone'}})
     })
   })
