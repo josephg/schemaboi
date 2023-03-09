@@ -20,7 +20,7 @@ describe('merging', () => {
           type: 'enum',
           numericOnly: true,
           exhaustive: exhaustive,
-          variants: { [color]: {}, }
+          variants: { [color]: true, }
         }
       }
     }))
@@ -120,8 +120,8 @@ describe('merging', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: String},
-            address: {type: String},
+            name: 'string',
+            address: 'string',
           }
         },
         Color: enumOfStringsSimple('Red', 'Green'),
@@ -135,8 +135,8 @@ describe('merging', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: String, defaultValue: 'Bruce'},
-            phoneNo: {type: String},
+            name: {type: 'string', defaultValue: 'Bruce'},
+            phoneNo: {type: 'string'},
           }
         },
         Color: enumOfStringsSimple('Green', 'Blue'),

@@ -155,9 +155,8 @@ export interface AppSchema {
   types: Record<string, AppStructSchema & {type: 'struct'} | AppEnumSchema>
 }
 
-export type AppStructField = {
-  type: SType | Primitive | string, // Schema type
-
+// The type is inlined into the struct field to make things way simpler.
+export type AppStructField = SType & {
   /** If the field is missing in the data set, use this value instead of null when decoding. */
   defaultValue?: any,
   optional?: boolean,

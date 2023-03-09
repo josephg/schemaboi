@@ -49,72 +49,72 @@ const tldrawTest = () => {
         exhaustive: false,
         typeFieldOnParent: 'type',
         variants: {
-          text: { associatedData: {
+          text: {
             fields: {
-              opacity: {type: 'string'},
-              color: {type: ref('Color')},
-              size: {type: ref('Size')},
-              w: {type: 'u32'},
-              text: {type: 'string'},
-              font: {type: 'string'},
-              align: {type: ref('Alignment')},
-              autoSize: {type: 'bool'},
+              opacity: 'string',
+              color: 'Color',
+              size: 'Size',
+              w: 'u32',
+              text: 'string',
+              font: 'string',
+              align: 'Alignment',
+              autoSize: 'bool',
             }
-          }},
+          },
 
-          geo: { associatedData: {
+          geo: {
             fields: {
-              w: {type: 'f32'},
-              h: {type: 'f32'},
-              geo: {type: ref('GeoType')},
-              color: {type: ref('Color')},
-              fill: {type: ref('Fill')},
-              dash: {type: ref('Dash')},
-              size: {type: ref('Size')},
-              opacity: {type: 'string'}, // Why is this a string?
-              font: {type: 'string'}, // Or enumOfStrings(['draw'])
-              text: {type: 'string'},
-              align: {type: ref('Alignment')},
-              growY: {type: 'u32'},
+              w: 'f32',
+              h: 'f32',
+              geo: ref('GeoType'),
+              color: ref('Color'),
+              fill: ref('Fill'),
+              dash: ref('Dash'),
+              size: ref('Size'),
+              opacity: 'string', // Why is this a string?
+              font: 'string', // Or enumOfStrings(['draw'])
+              text: 'string',
+              align: ref('Alignment'),
+              growY: 'u32',
             }
-          }},
+          },
 
-          arrow: { associatedData: {
+          arrow: {
             fields: {
-              opacity: {type: 'string'}, // Why is this a string?
-              dash: {type: ref('Dash')},
-              size: {type: ref('Size')},
-              fill: {type: ref('Fill')},
-              color: {type: ref('Color')},
-              w: {type: 'f32'},
-              h: {type: 'f32'},
-              bend: {type: 'f32'},
+              opacity: 'string', // Why is this a string?
+              dash: ref('Dash'),
+              size: ref('Size'),
+              fill: ref('Fill'),
+              color: ref('Color'),
+              w: 'f32',
+              h: 'f32',
+              bend: 'f32',
 
-              start: {type: ref('ArrowEnd')},
-              end: {type: ref('ArrowEnd')},
+              start: ref('ArrowEnd'),
+              end: ref('ArrowEnd'),
 
-              arrowheadStart: {type: ref('ArrowHead')},
-              arrowheadEnd: {type: ref('ArrowHead')},
+              arrowheadStart: ref('ArrowHead'),
+              arrowheadEnd: ref('ArrowHead'),
             }
-          }}
+          }
         }
       },
 
       Vec2: {
         type: 'struct',
         fields: {
-          x: {type: 'f32'},
-          y: {type: 'f32'}
+          x: 'f32',
+          y: 'f32',
         }
       },
 
       ArrowEnd: {
         type: 'struct',
         fields: {
-          x: {type: 'f32'},
-          y: {type: 'f32'},
-          binding: {type: 'id'},
-          anchor: {type: ref('Vec2')}
+          x: 'f32',
+          y: 'f32',
+          binding: 'id',
+          anchor: 'Vec2',
         }
       }
     }

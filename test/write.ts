@@ -36,14 +36,14 @@ describe('write', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: String},
-            age: {type: prim('u32'), optional: false},
-            supercool: {type: Bool, defaultValue: true},
-            addresses: {type: {type: 'list', fieldType: String}},
+            name: String,
+            age: {type: 'u32', optional: false},
+            supercool: {type: 'bool', defaultValue: true},
+            addresses: {type: 'list', fieldType: String},
             // address: {type: String},
-            favoriteColor: {type: {type: 'ref', key: 'Color'}},
-            worstColor: {type: {type: 'ref', key: 'Color'}},
-            hairColor: {type: {type: 'ref', key: 'Color'}},
+            favoriteColor: {type: 'ref', key: 'Color'},
+            worstColor: {type: 'ref', key: 'Color'},
+            hairColor: {type: 'ref', key: 'Color'},
           }
         },
   
@@ -51,15 +51,15 @@ describe('write', () => {
           type: 'enum',
           numericOnly: false,
           variants: {
-            Blue: {},
-            Red: {},
+            Blue: null,
+            Red: null,
             RGB: {
               associatedData: {
                 type: 'struct',
                 fields: {
-                  r: {type: prim('u32')},
-                  g: {type: prim('u32')},
-                  b: {type: prim('u32')},
+                  r: 'u32',
+                  g: 'u32',
+                  b: 'u32',
                 }
               }
             }

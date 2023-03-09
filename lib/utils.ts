@@ -227,7 +227,22 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
   }
 }
 
-export const extendType = (t: SType | Primitive | string): SType => (
+type AndAny<T> = T & Record<string, any>
+const cloneType = (t: AndAny<SType> | Primitive | string): SType => (
+  typeof t === 'string' ? (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
+    : t.type === 'ref' ? {type: 'ref', key: t.key}
+    : t.type === 'list' ? {type: 'list', fieldType: extendType(t.fieldType)}
+    : t.type === 'map' ? {
+      type: 'map',
+      keyType: extendType(t.keyType),
+      valType: extendType(t.valType),
+      decodeForm: t.decodeForm ?? 'object'
+    }
+    : isInt(t) ? { type: t.type, numericEncoding: intEncoding(t), decodeAsBigInt: t.decodeAsBigInt ?? false }
+    : { type: t.type }
+)
+
+export const extendType = (t: AndAny<SType> | Primitive | string): SType => (
   typeof t === 'object'
     ? t
     : (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
@@ -239,10 +254,11 @@ const getType = (t: SType | Primitive | string): string => (
 )
 
 function extendField(f: AppStructField): StructField {
+  // console.log('extendField', f, cloneType(f))
   return {
-    type: extendType(f.type),
+    type: cloneType(f),
     defaultValue: f.defaultValue,
-    inline: getType(f.type) === 'bool' ? true : false, // Inline booleans.
+    inline: getType(f) === 'bool' ? true : false, // Inline booleans.
     optional: f.optional ?? false,
     skip: false,
     // encoding: f.optional ? 'optional' : 'required',
@@ -255,7 +271,7 @@ function extendStruct(s: AppStructSchema): StructSchema {
     ...s, // Copy encode and decode.
     fields: objMapToMap(s.fields, f => (
       typeof f === 'string'
-        ? extendField({type: extendType(f)})
+        ? extendField(extendType(f))
         : extendField(f)
     )),
   }

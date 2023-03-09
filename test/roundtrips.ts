@@ -213,7 +213,7 @@ describe('roundtrips', () => {
             fields: {
               name: {type: 'string', optional: true},
               age: {type: 'u32', optional: true},
-              addresses: {type: {type: 'list', fieldType: 'string'}, optional: true}
+              addresses: {type: 'list', fieldType: 'string', optional: true}
               // address: {type: String},
             }
           }
@@ -307,8 +307,8 @@ describe('roundtrips', () => {
             NumTest: {
               type: 'struct',
               fields: {
-                u8V: {type: {type: 'u8', numericEncoding: 'varint'}},
-                s8V: {type: {type: 's8', numericEncoding: 'varint'}},
+                u8V: {type: 'u8', numericEncoding: 'varint'},
+                s8V: {type: 's8', numericEncoding: 'varint'},
                 u8: 'u8',
                 u16: 'u16',
                 u32: 'u32',
@@ -350,19 +350,19 @@ describe('roundtrips', () => {
             NumTest: {
               type: 'struct',
               fields: {
-                u8V: {type: {type: 'u8', decodeAsBigInt: true, numericEncoding: 'varint'}},
-                s8V: {type: {type: 's8', decodeAsBigInt: true, numericEncoding: 'varint'}},
-                u8: {type: {type: 'u8', decodeAsBigInt: true}},
-                u16: {type: {type: 'u16', decodeAsBigInt: true}},
-                u32: {type: {type: 'u32', decodeAsBigInt: true}},
-                u64: {type: {type: 'u64', decodeAsBigInt: true}},
-                u128: {type: {type: 'u128', decodeAsBigInt: true}},
+                u8V: {type: 'u8', decodeAsBigInt: true, numericEncoding: 'varint'},
+                s8V: {type: 's8', decodeAsBigInt: true, numericEncoding: 'varint'},
+                u8: {type: 'u8', decodeAsBigInt: true},
+                u16: {type: 'u16', decodeAsBigInt: true},
+                u32: {type: 'u32', decodeAsBigInt: true},
+                u64: {type: 'u64', decodeAsBigInt: true},
+                u128: {type: 'u128', decodeAsBigInt: true},
 
-                s8: {type: {type: 's8', decodeAsBigInt: true}},
-                s16: {type: {type: 's16', decodeAsBigInt: true}},
-                s32: {type: {type: 's32', decodeAsBigInt: true}},
-                s64: {type: {type: 's64', decodeAsBigInt: true}},
-                s128: {type: {type: 's128', decodeAsBigInt: true}},
+                s8: {type: 's8', decodeAsBigInt: true},
+                s16: {type: 's16', decodeAsBigInt: true},
+                s32: {type: 's32', decodeAsBigInt: true},
+                s64: {type: 's64', decodeAsBigInt: true},
+                s128: {type: 's128', decodeAsBigInt: true},
               }
             }
           }

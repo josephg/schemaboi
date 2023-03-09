@@ -60,8 +60,8 @@ describe('read', () => {
           type: 'struct',
           fields: {
             // name: {type: String},
-            age: {type: prim('u32'), optional: true, renameFieldTo: 'yearsOld'},
-            address: {type: String, optional: true, defaultValue: 'unknown location'},
+            age: {type: 'u32', optional: true, renameFieldTo: 'yearsOld'},
+            address: {type: 'string', optional: true, defaultValue: 'unknown location'},
           }
         }
       }

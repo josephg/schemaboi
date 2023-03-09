@@ -19,9 +19,9 @@ describe('extend', () => {
         Contact: {
           type: 'struct',
           fields: {
-            name: {type: 'string'},
-            address: {type: String},
-            coolness: {type: 'bool'},
+            name: 'string',
+            address: 'string',
+            coolness: 'bool',
           }
         },
 
@@ -33,7 +33,7 @@ describe('extend', () => {
             Square: {
               associatedData: {
                 type: 'struct',
-                fields: { x: {type: 'f32'}, y: {type: prim('f32')} }
+                fields: { x: {type: 'f32'}, y: 'f32'}
               }
             }
           }

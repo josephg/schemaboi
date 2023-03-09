@@ -61,8 +61,8 @@ const json: AppSchema = {
         string: {fields: {val: 'string'}},
         int: {fields: {val: 's64'}},
         float: {fields: {val: 'f64'}},
-        object: {fields: {val: {type: {type: 'map', keyType: 'string', valType: 'Any', decodeForm: 'object'}}}},
-        list: {fields: {val: {type: {type: 'list', fieldType: 'Any'}}}},
+        object: {fields: {val: {type: 'map', keyType: 'string', valType: 'Any', decodeForm: 'object'}}},
+        list: {fields: {val: {type: 'list', fieldType: 'Any'}}},
       }
     }
   }
