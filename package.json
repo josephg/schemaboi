@@ -1,6 +1,6 @@
 {
   "name": "schemaboi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Binary serialization library with long-now schema migration and app support",
   "main": "dist/lib/index.js",
   "types": "dist/lib/index.d.ts",
