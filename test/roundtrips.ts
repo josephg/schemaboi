@@ -371,7 +371,7 @@ describe('roundtrips', () => {
         testRoundTrip(schema, {
           u8V: 200n, s8V: -127n,
           u8: 0xffn, u16: 0xffffn, u32: 0xffffffffn, u64: 2n ** 64n - 1n, u128: 2n ** 128n - 1n,
-          s8: -0x80n, s16: -0x8000n, s32: -0x80000000n, s64: -(2n ** 64n), s128: -(2n ** 127n - 1n),
+          s8: -0x80n, s16: -0x8000n, s32: -0x80000000n, s64: -(2n ** 63n), s128: -(2n ** 127n - 1n),
         })
       })
 

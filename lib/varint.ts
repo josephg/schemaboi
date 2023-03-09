@@ -181,32 +181,27 @@ export function varintDecodeBN(bytes: Uint8Array): bigint {
   return val
 }
 
-
-
-
-
-
 export function zigzagEncode(val: number): number {
   return val < 0
-    ? -val * 2 + 1
+    ? -val * 2 - 1
     : val * 2
 }
 
 export function zigzagDecode(val: number): number {
   return (val % 2) === 1
-    ? -Math.floor(val / 2)
-    : Math.floor(val / 2)
+    ? -(val + 1) / 2
+    : val / 2
 }
 
 export function zigzagEncodeBN(val: bigint): bigint {
   return val < 0
-    ? (-val << 1n) + 1n
+    ? (-val << 1n) - 1n
     : val << 1n
 }
 
 export function zigzagDecodeBN(val: bigint): bigint {
   return (val % 2n) === 1n
-    ? -val / 2n // Will truncate.
+    ? -(val + 1n) / 2n // Will truncate.
     : val / 2n
 }
 

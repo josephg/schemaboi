@@ -104,7 +104,7 @@ export const metaSchema: Schema = {
           associatedData: {
             fields: new Map<string, StructField>([
               ['foreign', { type: Bool, defaultValue: true, skip: true }], // Not stored.
-              ['closed', { type: Bool, inline: true }],
+              ['exhaustive', { type: Bool, inline: true }],
               ['numericOnly', { type: Bool, inline: true }],
               ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
             ]),

@@ -73,6 +73,21 @@ function checkPrimitiveType(val: any, type: Primitive) {
   }
 }
 
+// Using max+1 because JS numbers (doubles) can accurately store powers of 2.
+const maxPlus1Num = {
+  u8: 256,
+  u16: 2**16,
+  u32: 2**32,
+  u64: 2**64,
+  u128: 2**128,
+
+  s8: 128,
+  s16: 2**15,
+  s32: 2**31,
+  s64: 2**63,
+  s128: 2**127,
+}
+
 function writeInt(w: WriteBuffer, val: number | bigint, type: IntPrimitive) {
   const encoding = intEncoding(type)
   if (encoding === 'le') {
@@ -81,6 +96,11 @@ function writeInt(w: WriteBuffer, val: number | bigint, type: IntPrimitive) {
   } else {
     const isSigned = type.type[0] === 's'
     // console.log('writing', val, 'type', typeof val, 'signed', isSigned, 'x', isSigned ? zigzagEncodeBN(BigInt(val)) : val)
+
+    if (val >= maxPlus1Num[type.type]) throw Error(`Number ${val} too big for container size ${type.type}`)
+    // The test is < not <= because 2s compliment supports from [-2^n .. 2^n-1]
+    if (isSigned && val < -maxPlus1Num[type.type]) throw Error(`Number ${val} too negative for container size ${type.type}`)
+    if (!isSigned && val < 0) throw Error(`Negative number ${val} cannot be stored with unsized type ${type.type}`)
 
     // Writing a varint.
     if (typeof val === 'bigint') {

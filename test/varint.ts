@@ -1,7 +1,7 @@
 import 'mocha'
 import fs from 'fs'
 import assert from 'assert/strict'
-import {varintEncode, bytesUsed, varintDecode, zigzagEncode, zigzagDecode, varintEncodeBN, varintDecodeBN} from '../lib/varint.js'
+import {varintEncode, bytesUsed, varintDecode, zigzagEncode, zigzagDecode, varintEncodeBN, varintDecodeBN, zigzagDecodeBN, zigzagEncodeBN} from '../lib/varint.js'
 import {randomBytes} from 'crypto'
 
 // Helper function while debugging.
@@ -9,11 +9,17 @@ const printBinary = (x: Uint8Array) => {
   console.log([...x].map(b => b.toString(2).padStart(8, '0')).join(' '))
 }
 
-const checkZigZag = (n: number) => {
+const checkZigZag = (n: number, expect?: number) => {
   let zz = zigzagEncode(n)
+  if (expect != null) assert.equal(zz, expect)
   assert(zz >= 0)
   let out = zigzagDecode(zz)
   assert.equal(n, out)
+
+  let zzn = zigzagEncodeBN(BigInt(n))
+  assert.equal(zzn, BigInt(zz))
+  let outn = zigzagDecodeBN(zzn)
+  assert.equal(BigInt(n), outn)
 }
 
 const roundtripUint = (n: number) => {
@@ -52,6 +58,16 @@ const roundtripBN = (n: bigint) => {
 
 
 describe('varint encoding', () => {
+  it('zigzags the same as protobuf', () => {
+    // from https://protobuf.dev/programming-guides/encoding/#signed-ints :
+    checkZigZag(0, 0)
+    checkZigZag(-1, 1)
+    checkZigZag(1, 2)
+    checkZigZag(-2, 3)
+    checkZigZag(2147483647, 4294967294)
+    checkZigZag(-2147483648, 4294967295)
+  })
+
   it('roundtrip encodes simple numbers correctly', () => {
     roundtripUint(0)
     roundtripUint(1)
