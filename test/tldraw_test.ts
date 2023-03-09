@@ -1,5 +1,5 @@
 import { Schema, AppSchema } from "../lib/schema.js"
-import { enumOfStringsSimple, extendSchema, ref, fillSchemaDefaults } from "../lib/utils.js"
+import { enumOfStrings, extendSchema, ref, fillSchemaDefaults } from "../lib/utils.js"
 import fs from 'fs'
 import { writeRaw, write } from "../lib/write.js"
 import { metaSchema } from "../lib/metaschema.js"
@@ -34,14 +34,14 @@ const tldrawTest = () => {
         }
       },
 
-      ShapeType: enumOfStringsSimple('shape'),
-      Color: enumOfStringsSimple('light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'),
-      Size: enumOfStringsSimple('l', 'xl'),
-      Alignment: enumOfStringsSimple('middle', 'start', 'end'),
-      GeoType: enumOfStringsSimple('ellipse', 'rectangle'),
-      Fill: enumOfStringsSimple('pattern', 'none'),
-      Dash: enumOfStringsSimple('draw'),
-      ArrowHead: enumOfStringsSimple('arrow', 'none'),
+      ShapeType: enumOfStrings('shape'),
+      Color: enumOfStrings('light-blue', 'light-red', 'black', 'light-green', 'yellow', 'light-violet'),
+      Size: enumOfStrings('l', 'xl'),
+      Alignment: enumOfStrings('middle', 'start', 'end'),
+      GeoType: enumOfStrings('ellipse', 'rectangle'),
+      Fill: enumOfStrings('pattern', 'none'),
+      Dash: enumOfStrings('draw'),
+      ArrowHead: enumOfStrings('arrow', 'none'),
 
       Props: {
         type: 'enum',

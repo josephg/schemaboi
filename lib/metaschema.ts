@@ -1,9 +1,8 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
 import {EnumVariant, IntPrimitive, MapType, Schema, StructField, StructSchema, SType} from './schema.js'
-import { Bool, enumOfStrings, extendType, fillSchemaDefaults, Id, intEncoding, mergeSchemas, primitiveTypes, ref, String } from './utils.js'
-import { writeRaw } from "./write.js"
-import { readRaw } from "./read.js"
+import { Bool, enumOfStringsEncoding, extendType, Id, intEncoding, ref, String } from './utils.js'
+
 // import * as assert from 'assert/strict'
 // import * as fs from 'fs'
 // import {Console} from 'node:console'
@@ -51,7 +50,7 @@ export const metaSchema: Schema = {
       ]),
     },
 
-    NumberEncoding: enumOfStrings('le', 'varint'),
+    NumberEncoding: enumOfStringsEncoding('le', 'varint'),
 
     Type: {
       // This has all the types in Primitive, and more!

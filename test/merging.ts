@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict'
 import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
-import { enumOfStrings, enumOfStringsSimple, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String } from '../lib/utils.js'
+import { enumOfStringsEncoding, enumOfStrings, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String } from '../lib/utils.js'
 import { write } from '../lib/write.js'
 import { read } from '../lib/read.js'
 // import {Console} from 'node:console'
@@ -68,7 +68,7 @@ describe('merging', () => {
             // address: {type: String},
           ])
         },
-        Color: enumOfStrings('Red', 'Blue'),
+        Color: enumOfStringsEncoding('Red', 'Blue'),
       }
     }
 
@@ -87,7 +87,7 @@ describe('merging', () => {
             // ['address', {type: String, skip: true, defaultValue: 'unknown location'}],
           ])
         },
-        Color: enumOfStrings('Red', 'Bronze'),
+        Color: enumOfStringsEncoding('Red', 'Bronze'),
       }
     }
 
@@ -124,7 +124,7 @@ describe('merging', () => {
             address: 'string',
           }
         },
-        Color: enumOfStringsSimple('Red', 'Green'),
+        Color: enumOfStrings('Red', 'Green'),
       }
     })
 
@@ -139,7 +139,7 @@ describe('merging', () => {
             phoneNo: {type: 'string'},
           }
         },
-        Color: enumOfStringsSimple('Green', 'Blue'),
+        Color: enumOfStrings('Green', 'Blue'),
       }
     })
 

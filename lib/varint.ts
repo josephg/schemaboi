@@ -1,3 +1,30 @@
+// This file contains routines to do length-prefixed varint encoding. I'd use LEB128 but this should
+// optimize better because it plays better with branch predictor. (Well, although this isn't an
+// optimized version).
+//
+// This uses a bijective base, where each number has exactly 1 canonical encoding.
+// See https://news.ycombinator.com/item?id=11263378 for an explanation as to why.
+//
+// This format is extremely similar to how UTF8 works internally. Its almost certainly possible to
+// reuse existing efficient UTF8 <-> UTF32 SIMD encoders and decoders to make this code faster,
+// but frankly its not a priority right now.
+//
+// 0    - 2^7-1 encodes as `0b0xxx_xxxx`
+// 2^7  - 2^14+2^7-1 encodes as `0b10xx_xxxx xxxx_xxxx`
+// 2^14+2^7 - 2^21+2^14+2^7-1 encodes as `0b110x_xxxx xxxx_xxxx xxxx_xxxx`
+// 2^21 - 2^28-1 encodes as `0b1110_xxxx xxxx_xxxx xxxx_xxxx xxxx_xxxx`
+// ... And so on.
+//
+// For 64 bit integers it would be tempting to use:
+// 0x1111_1111 1111_1111 xxxx_xxxx ....
+// ... Since then there would be at most 2 bytes of overhead (or 4 bytes of overhead for 128 bits).
+// But that breaks the pattern, so instead it uses this as the maximum encoding for 64 bits:
+// 0x1111_1111 1111_1111 0xxx_xxxx ...
+// And for 128 bits:
+// 0x1111_1111 1111_1111 1111_1111 1111_1111 0xxx_xxxx ...
+
+// TODO: This module should probably be packaged separately, as its own npm module.
+
 import { assert } from "./utils.js"
 
 export const MAX_INT_LEN = 9

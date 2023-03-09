@@ -1,7 +1,7 @@
 // Test that we can extend schemas
 import 'mocha'
 import { AppSchema } from '../lib/schema.js'
-import { Bool, enumOfStringsSimple, extendSchema, prim, ref, String } from '../lib/utils.js'
+import { Bool, enumOfStrings, extendSchema, prim, ref, String } from '../lib/utils.js'
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -39,7 +39,7 @@ describe('extend', () => {
           }
         },
 
-        Color: enumOfStringsSimple('Green', 'Red', 'Purple')
+        Color: enumOfStrings('Green', 'Red', 'Purple')
       }
     }
 

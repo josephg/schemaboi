@@ -1,7 +1,7 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
 import {AppSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
-import { Bool, enumOfStringsSimple, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
+import { Bool, enumOfStrings, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
 import { readRaw, read } from "../lib/read.js"
 import { writeRaw, write } from "../lib/write.js"
 

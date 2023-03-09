@@ -336,14 +336,14 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
 
 export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
 
-export const enumOfStringsSimple = (...variants: string[]): AppEnumSchema => ({
+export const enumOfStrings = (...variants: string[]): AppEnumSchema => ({
   type: 'enum',
   exhaustive: false,
   numericOnly: true,
   variants: Object.fromEntries(variants.map(v => [v, null]))
 })
 
-export const enumOfStrings = (...variants: string[]): EnumSchema => ({
+export const enumOfStringsEncoding = (...variants: string[]): EnumSchema => ({
   type: 'enum',
   exhaustive: false,
   numericOnly: true,
