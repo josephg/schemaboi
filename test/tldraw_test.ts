@@ -46,7 +46,7 @@ const tldrawTest = () => {
       Props: {
         type: 'enum',
         numericOnly: false,
-        closed: false,
+        exhaustive: false,
         typeFieldOnParent: 'type',
         variants: {
           text: { associatedData: {

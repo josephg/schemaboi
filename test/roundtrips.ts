@@ -120,7 +120,12 @@ describe('roundtrips', () => {
         id: 'Example',
         root: 'Color',
         types: {
-          Color: enumOfStringsSimple('Red', 'Blue', 'Green'),
+          // Color: enumOfStringsSimple('Red', 'Blue', 'Green'),
+          Color: {
+            type: 'enum',
+            numericOnly: true,
+            variants: ['Red', 'Blue', 'Green'],
+          }
         }
       }
 

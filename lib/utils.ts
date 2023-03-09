@@ -116,7 +116,7 @@ function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
 }
 
 function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
-  // I would use mergeObjects from above, but if one (or both) of the enums is closed, we need to make sure
+  // I would use mergeObjects from above, but if one (or both) of the enums is exhaustive, we need to make sure
   // fields aren't added when they aren't valid.
 
   if (local.numericOnly && !remote.numericOnly) {
@@ -127,7 +127,7 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
   const result: EnumSchema = {
     type: 'enum',
     foreign: local.foreign ?? false,
-    closed: remote.closed || local.closed,
+    exhaustive: remote.exhaustive || local.exhaustive,
     numericOnly: local.numericOnly,
     typeFieldOnParent: local.typeFieldOnParent,
     encode: local.encode ?? undefined,
@@ -138,8 +138,8 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     const remoteV = remote.variants.get(key)
     const localV = local.variants.get(key)
 
-    if (remoteV == null && remote.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
-    if (localV == null && local.closed) throw Error('Cannot merge enums: Cannot add variant to closed enum')
+    if (remoteV == null && remote.exhaustive) throw Error('Cannot merge enums: Cannot add variant to exhaustive enum')
+    if (localV == null && local.exhaustive) throw Error('Cannot merge enums: Cannot add variant to exhaustive enum')
 
     result.variants.set(key, remoteV == null ? { foreign: false, ...localV, skip: true }
       : localV == null ? { ...remoteV, foreign: true } // TODO: Recursively set foreign flag in associated data.
@@ -261,18 +261,21 @@ function extendStruct(s: AppStructSchema): StructSchema {
 }
 
 function extendEnum(s: AppEnumSchema): EnumSchema {
+  const variants = Array.isArray(s.variants)
+    ? new Map(s.variants.map((s): [string, EnumVariant] => [s, {}]))
+    : objMapToMap(s.variants, (v): EnumVariant => ({
+        associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
+        skip: false,
+      }))
+
   return {
     type: 'enum',
-    closed: s.closed ?? false,
+    exhaustive: s.exhaustive ?? false,
     numericOnly: s.numericOnly,
     typeFieldOnParent: s.typeFieldOnParent,
     encode: s.encode,
     // decode: s.decode,
-    variants: objMapToMap(s.variants, (v): EnumVariant => ({
-      associatedData: v?.associatedData != null ? extendStruct(v.associatedData) : undefined,
-      skip: false,
-    })),
-    // encodingOrder: Object.keys(s.variants)
+    variants,
   }
 }
 
@@ -315,14 +318,14 @@ export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', k
 
 export const enumOfStringsSimple = (...variants: string[]): AppEnumSchema => ({
   type: 'enum',
-  closed: false,
+  exhaustive: false,
   numericOnly: true,
   variants: Object.fromEntries(variants.map(v => [v, null]))
 })
 
 export const enumOfStrings = (...variants: string[]): EnumSchema => ({
   type: 'enum',
-  closed: false,
+  exhaustive: false,
   numericOnly: true,
   variants: new Map(variants.map(v => [v, {}])),
   // encodingOrder: variants,

@@ -56,7 +56,7 @@ export const metaSchema: Schema = {
     Type: {
       // This has all the types in Primitive, and more!
       type: 'enum',
-      closed: false,
+      exhaustive: false,
       numericOnly: false,
       encode: extendType, // To support lazy strings.
       variants: new Map<string, EnumVariant>([
@@ -97,7 +97,7 @@ export const metaSchema: Schema = {
 
     TypeDef: {
       type: 'enum',
-      closed: true, // TODO: ??? Am I sure about this?
+      exhaustive: true, // TODO: ??? Am I sure about this?
       numericOnly: false,
       variants: new Map<string, EnumVariant>([
         ['enum', {

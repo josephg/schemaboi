@@ -120,7 +120,7 @@ export interface EnumSchema {
 
   foreign?: boolean,
 
-  closed: boolean,
+  exhaustive: boolean,
   numericOnly: boolean,
   typeFieldOnParent?: string,
 
@@ -177,7 +177,7 @@ export interface AppStructSchema {
 export interface AppEnumSchema {
   type: 'enum',
 
-  closed?: boolean,
+  exhaustive?: boolean,
   numericOnly: boolean,
   typeFieldOnParent?: string,
 
@@ -187,7 +187,7 @@ export interface AppEnumSchema {
   variants: Record<string, {
     // renameFieldTo?: string,
     associatedData?: AppStructSchema,
-  } | null>,
+  } | null> | string[],
 }
 
 

@@ -11,15 +11,15 @@ import { read } from '../lib/read.js'
 // })
 
 describe('merging', () => {
-  describe('closed enums', () => {
-    const makeS = (color: string, closed?: boolean): Schema => (extendSchema({
+  describe('exhaustive enums', () => {
+    const makeS = (color: string, exhaustive?: boolean): Schema => (extendSchema({
       id: 'Example',
       root: ref('Color'),
       types: {
         Color: {
           type: 'enum',
           numericOnly: true,
-          closed,
+          exhaustive: exhaustive,
           variants: { [color]: {}, }
         }
       }
@@ -33,10 +33,10 @@ describe('merging', () => {
 
       const color = merged.types['Color'] as EnumSchema
       assert.equal(color.variants.size, 2)
-      assert.equal(color.closed, false)
+      assert.equal(color.exhaustive, false)
     })
 
-    it('throws if one of them is closed', () => {
+    it('throws if one of them is exhaustive', () => {
       const schemaA: Schema = makeS('Red', true)
       const schemaB: Schema = makeS('Blue', false)
       assert.throws(() => {
@@ -44,12 +44,12 @@ describe('merging', () => {
       })
     })
 
-    it('supports merging closed structs when they have the same fields', () => {
+    it('supports merging exhaustive structs when they have the same fields', () => {
       const schemaA: Schema = makeS('Red', true)
       const schemaB: Schema = makeS('Red', false)
       const merged = mergeSchemas(schemaA, schemaB)
       const color = merged.types['Color'] as EnumSchema
-      assert.equal(color.closed, true)
+      assert.equal(color.exhaustive, true)
     })
   })
 
@@ -163,7 +163,7 @@ describe('merging', () => {
           type: 'enum',
           foreign: false,
           numericOnly: true,
-          closed: false,
+          exhaustive: false,
           variants: new Map<string, EnumVariant>([
             ['Red', {foreign: true, skip: false}],
             ['Green', {foreign: false, skip: false}],
