@@ -60,7 +60,7 @@ export interface StructField {
 
 
   /**
-   * Encoding. Skip serializing and deserializing this field. When deserializing the field
+   * JS: Skip serializing and deserializing this field. When deserializing the field
    * will always be the default value (if specified) or null.
    */
   skip?: boolean,
@@ -99,27 +99,6 @@ export interface EnumVariant {
   /** JS: The variant is unknown to the local application. Defaults to false. */
   foreign?: boolean,
 
-  /*
-   * We need to know the variant number when encoding or decoding, when the variant is
-   * known by the storage system.
-   *
-   * There's a few ways to do that. The "obvious" way would be to add an integer variant number here.
-   *
-   * But there's two problems with that:
-   *
-   * 1. It would introduce a way for the data to be invalid, and making invalid states impossible
-   *    to represent is generally good design.
-   * 2. An integer would take up extra space over the wire. (We could translate back and forth when
-   *    encoding and decoding, but I'd rather not do that if I can avoid it).
-   *
-   * Using a bool here lets us rely on the order in the Map (which is fixed as per
-   * the JS spec). Its harder to work with though; which is unfortunately not ideal.
-   *
-   * TODO: Any reason I can't remove this, and just give priority to the remote ordering?
-   */
-  /** JS: This enum was not known by the remote peer and will not show up in the bitstream */
-  skip?: boolean,
-
   // JS: These methods, if provided, will be called before reading and after writing to prepare the object
   // for encoding. If used, the schema should express the data *at rest*.
   encode?: (obj: any) => Record<string, any>,
@@ -149,17 +128,12 @@ export interface EnumSchema {
   /** JS: The enum's variant name is on the parent object in the specified field */
   typeFieldOnParent?: string,
 
-  /** JS: The local application only knows this data type as a struct (it was widened remotely) */
-  mapToLocalStruct?: boolean,
-
   /**
-   * JS: If the enum was widened from a struct in the local application, this is the variant that a struct maps to.
+   * JS: This is really a struct from the POV of the application. This is the (singleton)
+   * enum variant in use.
    *
-   * Note we could use the first variant in the map above - it will almost
-   * always be the first variant. But if the enum is flattened to a struct
+   * Note we could use the first variant. But if the enum is flattened to a struct
    * (rare), then they might pick one of the other variants to keep.
-   *
-   * This is only relevant if mapToLocalStruct is true.
    */
   localStructIsVariant?: string,
 
@@ -170,6 +144,9 @@ export interface EnumSchema {
    *
    * Note the order here matters. The JS spec enforces that the order of items in a Map will be stable.
    * We use this order when encoding items to assign them all an integer tag.
+   *
+   * We can think of the order of these items as an encoding specific matter. When we merge schemas,
+   * the stored (remote) items *always* come before any local items which aren't in the remote schema.
    */
   variants: Map<string, EnumVariant>,
 
@@ -204,6 +181,7 @@ export interface AppSchema {
 export type AppStructField = SType & {
   /** If the field is missing in the data set, use this value instead of null when decoding. */
   defaultValue?: any,
+  skip?: boolean,
   optional?: boolean,
   renameFieldTo?: string,
 }

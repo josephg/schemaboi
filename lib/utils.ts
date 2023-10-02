@@ -122,7 +122,6 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     exhaustive: remote.exhaustive || local.exhaustive,
     numericOnly: local.numericOnly,
     typeFieldOnParent: local.typeFieldOnParent,
-    mapToLocalStruct: local.mapToLocalStruct,
     localStructIsVariant: local.localStructIsVariant,
     encode: local.encode ?? undefined,
     decode: local.decode ?? undefined,
@@ -136,11 +135,10 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
     if (remoteV == null && remote.exhaustive) throw Error('Cannot merge enums: Cannot add variant to exhaustive enum')
     if (localV == null && local.exhaustive) throw Error('Cannot merge enums: Cannot add variant to exhaustive enum')
 
-    result.variants.set(key, remoteV == null ? { foreign: false, ...localV, skip: true }
+    result.variants.set(key, remoteV == null ? { foreign: false, ...localV }
       : localV == null ? { ...remoteV, foreign: true } // TODO: Recursively set foreign flag in associated data.
       : {
           foreign: localV.foreign ?? false,
-          skip: remoteV.skip ?? false,
           encode: localV.encode,
           decode: localV.decode,
           fields: mergeFields(remoteV.fields, localV.fields),
@@ -196,15 +194,15 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
     id: local.id,
     // root: remote.root,
     root: mergeTypes(remote.root, local.root),
-    types: mergeObjectsAll(remote.types, local.types, (aa, bb): EnumSchema => {
-      if (aa == null) return bb!
-      if (bb == null) return {
+    types: mergeObjectsAll(remote.types, local.types, (rem, loc): EnumSchema => {
+      if (rem == null) return loc!
+      if (loc == null) return {
         // TODO: This is a dangerous pattern. Are you sure all the fields are set right here?
-        ...aa,
+        ...rem,
         foreign: true,
       }
 
-      return mergeEnums(aa, bb)
+      return mergeEnums(rem, loc)
     })
   }
 }
@@ -242,7 +240,7 @@ function extendField(f: AppStructField): StructField {
     defaultValue: f.defaultValue,
     inline: getType(f) === 'bool' ? true : false, // Inline booleans.
     optional: f.optional ?? false,
-    skip: false,
+    skip: f.skip ?? false,
     // encoding: f.optional ? 'optional' : 'required',
     renameFieldTo: f.renameFieldTo,
   }
@@ -250,7 +248,6 @@ function extendField(f: AppStructField): StructField {
 
 function structToEnumVariant(s: AppStructSchema): EnumVariant {
   return {
-    skip: false, // ??
     encode: s.encode,
     decode: s.decode,
     fields: objMapToMap(s.fields, f => extendField(extendType(f))),
@@ -263,7 +260,6 @@ function extendStruct(s: AppStructSchema): EnumSchema {
     exhaustive: false,
     numericOnly: false,
 
-    mapToLocalStruct: true,
     localStructIsVariant: 'default', // TODO: ??
 
     variants: new Map([['default', structToEnumVariant(s)]]),
@@ -282,7 +278,6 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
     exhaustive: s.exhaustive ?? false,
     numericOnly: s.numericOnly ?? false,
     typeFieldOnParent: s.typeFieldOnParent,
-    mapToLocalStruct: false,
     encode: s.encode,
     decode: s.decode,
     variants,
@@ -391,11 +386,12 @@ export function *mapIter<A, B>(iter: IterableIterator<A>, mapFn: (v: A) => B): I
 // )
 
 export const enumVariantsInUse = (e: EnumSchema): string[] => (
-  [...
-    mapIter(
-      filterIter(e.variants.entries(), ([_k, v]) => !v.skip),
-      ([k]) => k)
-  ]
+  [...e.variants.keys()]
+  // [...
+  //   mapIter(
+  //     filterIter(e.variants.entries(), ([_k, v]) => !v.skip),
+  //     ([k]) => k)
+  // ]
 )
 
 
@@ -435,7 +431,7 @@ const fillFieldDefaults = (fields: Map<string, StructField>, foreign: boolean) =
     field.foreign ??= foreign
     field.renameFieldTo ??= undefined // ???
     field.inline ??= false
-    // field.skip ??= false
+    field.skip ??= false
     field.optional ??= false
   }
 }
@@ -446,10 +442,10 @@ const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
   s.encode ??= undefined
   s.decode ??= undefined
   s.localStructIsVariant ??= undefined
-  s.mapToLocalStruct ??= undefined
+  s.numericOnly ??= false
   for (const variant of s.variants.values()) {
     variant.foreign ??= foreign
-    variant.skip ??= false
+    // variant.skip ??= false
     variant.encode ??= undefined
     variant.decode ??= undefined
 
@@ -521,16 +517,15 @@ export const intEncoding = (num: IntPrimitive): 'le' | 'varint' => (
 )
 
 
-export function structSchema(name: string, fields: [string, StructField][]): EnumSchema {
+export function structSchema(name: string, fields: [string, StructField][], extras?: any): EnumSchema {
   return {
     exhaustive: false,
     numericOnly: false,
-    mapToLocalStruct: true,
     localStructIsVariant: name,
-    variants: new Map([[name, {
+    variants: new Map<string, EnumVariant>([[name, {
       foreign: false,
-      skip: false,
       fields: new Map(fields)
-    }]])
+    }]]),
+    ...extras,
   }
 }

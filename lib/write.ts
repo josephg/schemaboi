@@ -246,7 +246,7 @@ function encodeFields(w: WriteBuffer, schema: Schema, val: any, variant: EnumVar
       // External fields always use the raw field name.
       if (field.foreign && v === undefined && val._foreign) v = val._foreign[k]
 
-      // console.log('field', k, 'inline', field.inline, 'encoding', field.encoding, 'hasValue', v != null, 'value', v)
+      // console.log('field', k, 'inline', field.inline, 'encoding', field.type, 'hasValue', v != null, 'value', v)
       if (field.optional) {
         const hasValue = v != null
         writeBit?.(hasValue)
@@ -300,13 +300,13 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject | any, e: En
 
   if (e.encode) val = e.encode(val)
 
-  const variantName = e.mapToLocalStruct ? e.localStructIsVariant
+  const variantName = e.localStructIsVariant != null ? e.localStructIsVariant
     : typeof val === 'string' ? val
     : e.typeFieldOnParent != null ? parent[e.typeFieldOnParent]
     : val.type === '_foreign' ? val.data.type
     : val.type
 
-  const associatedData = e.mapToLocalStruct ? val
+  const associatedData = e.localStructIsVariant != null ? val
     : typeof val === 'string' ? {}
     : val.type === '_foreign' ? val.data
     : val

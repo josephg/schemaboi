@@ -103,7 +103,7 @@ function readFields(r: Reader, schema: Schema, variant: EnumVariant): Record<str
     if (!hasValue) missingFields.add(k)
 
     // TODO: Consider also encoding enums with 2 in-use fields like this!
-    if (field.inline) {
+    if (field.inline && !field.skip) {
       if (field.type.type === 'bool') storeVal(k, field, hasValue ? readNextBit() : null)
       else throw Error('Cannot read inlined field of non-bool type')
     }
@@ -152,7 +152,7 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
 
   if (e.decode) {
     return e.decode(variantName, associatedData)
-  } else if (e.mapToLocalStruct) {
+  } else if (e.localStructIsVariant != null) {
     if (variantName !== e.localStructIsVariant) throw Error('NYI - Bubble up foreign enum')
     return associatedData
   } else if (variant.foreign) {

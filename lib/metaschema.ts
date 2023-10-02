@@ -91,39 +91,24 @@ export const metaSchema: Schema = {
     ]),
 
     EnumVariant: structSchema('default', [
-      ['fields', { type: mapOf(ref('Field'), 'map'), optional: true, defaultValue: null }]
-    ]),
-
-    // TypeDef: {
-    //   type: 'enum',
-    //   exhaustive: true, // TODO: ??? Am I sure about this?
-    //   numericOnly: false,
-    //   variants: new Map<string, EnumVariant>([
-    //     ['enum', {
-    //       associatedData: {
-    //         fields: new Map<string, StructField>([
-    //           ['foreign', { type: Bool, defaultValue: true, skip: true }], // Not stored.
-    //           ['exhaustive', { type: Bool, inline: true }],
-    //           ['numericOnly', { type: Bool, inline: true }],
-    //           ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
-    //         ]),
-    //       }
-    //     }],
-    //     ['struct', {
-    //       associatedData: structSchema
-    //     }],
-    //   ]),
-    // },
-
-
-    // StructSchema: { type: 'struct', ...structSchema },
+      ['fields', { type: mapOf(ref('Field'), 'map'), optional: true, defaultValue: null }],
+    ], {
+      encode(obj: EnumVariant) {
+        // Strip out any skipped fields from the wire.
+        return {
+          ...obj,
+          fields: obj.fields ? [...obj.fields!.entries()].filter(([_k,v]) => !v.skip) : undefined
+        }
+      }
+    }),
 
     Field: structSchema('default', [
       ['type', { type: ref('Type') }],
 
+      // These fields are local only.
       ['defaultValue', {type: String, skip: true, optional: true}], // Type doesn't matter.
       ['foreign', { type: Bool, skip: true, defaultValue: true }], // Not stored.
-      ['renameFieldTo', { type: String, optional: true, skip: true }], // Not stored.
+      ['renameFieldTo', { type: String, skip: true, optional: true }], // Not stored.
       ['skip', { type: Bool, skip: true, defaultValue: false, inline: true }], // Should skip be skipped? If not we should inline this.
 
       ['inline', { type: Bool, inline: true, optional: true }],

@@ -113,6 +113,24 @@ describe('roundtrips', () => {
     testRoundTrip(schema, {name: 'seph'})
   })
 
+  it('does not encode skipped fields', () => {
+    const schema: AppSchema = {
+      id: 'Example',
+      root: 'Contact',
+      types: {
+        Contact: {
+          type: 'struct',
+          fields: {
+            // name: 'string',
+            notSaved: {type: 'string', skip: true, defaultValue: 'secrets'},
+          }
+        }
+      }
+    }
+
+    testRoundTrip(schema, {notSaved: 'hiiiii'}, {notSaved: 'secrets'})
+  })
+
   describe('enums', () => {
     it('simple enums', () => {
       // Numeric Enum

@@ -62,8 +62,6 @@ describe('merging', () => {
           foreign: true,
           exhaustive: false,
           numericOnly: false,
-
-          mapToLocalStruct: true,
           localStructIsVariant: 'default',
           variants: new Map([['default', {
             foreign: false,
@@ -155,26 +153,31 @@ describe('merging', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           foreign: false,
-          fields: new Map<string, StructField>([
-            ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false}],
-            ['address', {type: String, foreign: true, skip: false, optional: false}],
-            ['phoneNo', {type: String, foreign: false, skip: true, optional: false}],
-          ])
+          exhaustive: false,
+          numericOnly: false,
+          localStructIsVariant: 'default',
+          variants: new Map<string, EnumVariant>([['default', {
+            foreign: false,
+            fields: new Map<string, StructField>([
+              ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false}],
+              ['address', {type: String, foreign: true, skip: false, optional: false}],
+              ['phoneNo', {type: String, foreign: false, skip: true, optional: false}],
+            ])
+          }]]),
         },
 
         Color: {
-          type: 'enum',
           foreign: false,
-          numericOnly: true,
           exhaustive: false,
+          numericOnly: true,
           variants: new Map<string, EnumVariant>([
-            ['Red', {foreign: true, skip: false}],
-            ['Green', {foreign: false, skip: false}],
-            ['Blue', {foreign: false, skip: true}],
+            ['Red', {foreign: true}],
+            ['Green', {foreign: false}],
+            ['Blue', {foreign: false}],
           ])
-        }
+        },
+
       }
     }
     fillSchemaDefaults(merged, false)
