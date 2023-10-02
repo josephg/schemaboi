@@ -2,7 +2,7 @@
 
 import { EnumObject, EnumSchema, Schema, SType, Field, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
-import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal } from "./utils.js"
+import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal, ref, chooseRootType } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -313,11 +313,11 @@ const createReader = (data: Uint8Array): Reader => ({
  * This is a low level method for reading data. It simply reads the incoming data
  * using the provided schema.
  */
-export function readRaw(schema: Schema, data: Uint8Array): any {
-  return readThing(createReader(data), schema, schema.root)
+export function readRaw(schema: Schema, data: Uint8Array, reqType?: string | SType): any {
+  return readThing(createReader(data), schema, chooseRootType(schema, reqType))
 }
 
-function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schema, any] {
+function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array, reqType?: string | SType): [Schema, any] {
   // A SB file starts with "SB10" for schemaboi version 1.0.
   const magic = textDecoder.decode(data.slice(0, 4))
   if (magic !== 'SB11') throw Error('Magic bytes do not match: Expected SBXX.')
@@ -326,7 +326,7 @@ function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schem
   reader.pos += 4 // Skip the magic bytes.
 
   // Read the schema.
-  const remoteSchema: Schema = readThing(reader, metaSchema, metaSchema.root)
+  const remoteSchema: Schema = readThing(reader, metaSchema, metaSchema.root!)
   // console.log('rs', remoteSchema.types.Any.variants.get('int'))
   // console.log(remoteSchema)
   const mergedSchema = localSchema == null ? remoteSchema : mergeSchemas(remoteSchema, localSchema)
@@ -334,7 +334,7 @@ function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schem
 
   // Read the data.
   reader.ids.length = 0
-  return [remoteSchema, readThing(reader, mergedSchema, mergedSchema.root)]
+  return [remoteSchema, readThing(reader, mergedSchema, chooseRootType(mergedSchema, reqType))]
 }
 
 export function read(localSchema: Schema, data: Uint8Array): [Schema, any] {

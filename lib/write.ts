@@ -1,6 +1,6 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
-import { assert, enumVariantsInUse, extendSchema, extendType, intEncoding, isPrimitive, ref } from "./utils.js"
+import { assert, chooseRootType, enumVariantsInUse, extendSchema, extendType, intEncoding, isPrimitive, ref } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 
 // import assert from 'assert/strict'
@@ -371,24 +371,24 @@ const createWriteBuffer = (): WriteBuffer => ({
   ids: new Map([['Default', 0]])
 })
 
-export function writeRaw(schema: Schema, data: any): Uint8Array {
+export function writeRaw(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
   const writer = createWriteBuffer()
 
-  encodeThing(writer, schema, data, schema.root)
+  encodeThing(writer, schema, data, chooseRootType(schema, ofType))
 
   return writer.buffer.slice(0, writer.pos)
 }
 
-export function write(schema: Schema, data: any): Uint8Array {
+export function write(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
   const writer = createWriteBuffer()
   const magicBytes = encoder.encode("SB11")
   writer.buffer.set(magicBytes, writer.pos)
   writer.pos += 4
 
   // console.log(schema)
-  encodeThing(writer, metaSchema, schema, metaSchema.root)
+  encodeThing(writer, metaSchema, schema, metaSchema.root!)
   writer.ids.clear()
-  encodeThing(writer, schema, data, schema.root)
+  encodeThing(writer, schema, data, chooseRootType(schema, ofType))
 
   return writer.buffer.slice(0, writer.pos)
 }

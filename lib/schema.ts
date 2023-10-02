@@ -101,9 +101,13 @@ export interface EnumSchema {
   foreign?: boolean,
 
   /**
-   * The schema contains all variants and cannot be extended. Exhaustive
-   * enums will error if you ever attempt to add more variants via schema
-   * merging.
+   * JS: The enum contains all variants that will ever exist, and it cannot be
+   * extended. Exhaustive enums will error if you ever attempt to add more
+   * variants via schema merging.
+   *
+   * Although the exhaustive flag could be considered a local only flag, its still
+   * put in the schema file because its important that other applications know the
+   * type will & must never be extended.
    *
    * TODO: Mark me as optional.
    */
@@ -145,7 +149,7 @@ export interface EnumSchema {
 // export type StructOrEnum = StructSchema & {type: 'struct'} | EnumSchema
 export interface Schema {
   id: string,
-  root: SType, // TODO: Consider making the optional.
+  root?: SType, // TODO: Make this optional for schemas with no obvious root type.
   types: Record<string, EnumSchema>
 }
 
@@ -159,7 +163,7 @@ export interface Schema {
  */
 export interface AppSchema {
   id: string,
-  root: SType | Primitive | string, // TODO: Consider making this optional.
+  root?: SType | Primitive | string, // TODO: Consider making this optional.
   types: Record<string, AppStructSchema & {type: 'struct'} | AppEnumSchema>
 }
 

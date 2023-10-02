@@ -192,8 +192,15 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
 
   return {
     id: local.id,
-    // root: remote.root,
-    root: mergeTypes(remote.root, local.root),
+
+    // Ehhh this is a bit of a mess.
+    // - If they're both set, try to merge.
+    // - If neither is set, leave it null.
+    // Changing the default root type in a document isn't supported.
+    root: (remote.root == null && local.root == null) ? undefined
+      : (remote.root != null && local.root != null) ? mergeTypes(remote.root, local.root)
+      : (remote.root ?? local.root), // Or take which ever is set.
+
     types: mergeObjectsAll(remote.types, local.types, (rem, loc): EnumSchema => {
       if (rem == null) return loc!
       if (loc == null) return {
@@ -287,7 +294,7 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
 export function extendSchema(schema: AppSchema): Schema {
   return {
     id: schema.id,
-    root: extendType(schema.root),
+    root: schema.root ? extendType(schema.root) : undefined,
     types: objMap(schema.types, s => (
       s.type === 'enum' ? extendEnum(s) : extendStruct(s)
     ))
@@ -456,7 +463,7 @@ const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
 
 /** Modifies the schema in-place! */
 export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
-  fillSTypeDefaults(s.root)
+  if (s.root) fillSTypeDefaults(s.root)
   for (const k in s.types) {
     fillEnumDefaults(s.types[k], foreign)
   }
@@ -528,4 +535,17 @@ export function structSchema(fields: [string, Field][], extras?: any): EnumSchem
     }]]),
     ...extras,
   }
+}
+
+export const chooseRootType = (schema: Schema, reqType?: string | SType): SType => {
+  let rootType = reqType ?? schema.root
+  if (rootType == null) throw Error('Schema has no root type. You must specify which type from the schema you are loading')
+
+  rootType = extendType(rootType) // If the requested root type is specified as a string, extend it.
+
+  if (rootType.type === 'ref' && schema.types[rootType.key] == null) {
+     throw Error(`Schema is missing requested type '${rootType.key}'`)
+  }
+
+  return rootType
 }
