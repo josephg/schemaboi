@@ -303,30 +303,27 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
   }
 }
 
+const createReader = (data: Uint8Array): Reader => ({
+  pos: 0,
+  data: new DataView(data.buffer, data.byteOffset, data.byteLength),
+  ids: ['Default']
+})
+
 /**
  * This is a low level method for reading data. It simply reads the incoming data
  * using the provided schema.
  */
 export function readRaw(schema: Schema, data: Uint8Array): any {
-  const reader: Reader = {
-    pos: 0,
-    data: new DataView(data.buffer, data.byteOffset, data.byteLength),
-    ids: []
-  }
-
-  return readThing(reader, schema, schema.root)
+  return readThing(createReader(data), schema, schema.root)
 }
 
 function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schema, any] {
   // A SB file starts with "SB10" for schemaboi version 1.0.
   const magic = textDecoder.decode(data.slice(0, 4))
-  if (magic !== 'SB10') throw Error('Magic bytes do not match: Expected SBXX.')
+  if (magic !== 'SB11') throw Error('Magic bytes do not match: Expected SBXX.')
 
-  const reader: Reader = {
-    pos: 0,
-    data: new DataView(data.buffer, data.byteOffset + 4, data.byteLength - 4),
-    ids: []
-  }
+  const reader = createReader(data)
+  reader.pos += 4 // Skip the magic bytes.
 
   // Read the schema.
   const remoteSchema: Schema = readThing(reader, metaSchema, metaSchema.root)

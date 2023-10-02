@@ -69,7 +69,7 @@ function checkPrimitiveType(val: any, type: Primitive) {
     case 'bool': assert(typeof val === 'boolean'); break
     case 'string': case 'id': assert(typeof val === 'string'); break
     case 'binary': assert(val instanceof Uint8Array); break // TODO: Allow more binary types.
-    default: let unused: never = type; throw Error(`case missing in checkType: ${type}`)
+    default: let unused: never = type; throw Error(`Expected primitive type. Got: ${type}`)
   }
 }
 
@@ -108,85 +108,6 @@ function writeInt(w: WriteBuffer, val: number | bigint, type: IntPrimitive) {
     } else if (typeof val === 'number') {
       writeVarInt(w, isSigned ? zigzagEncode(val) : val)
     } else throw Error('Cannot encode type as a number')
-  }
-}
-
-function encodePrimitive(w: WriteBuffer, val: any, type: WrappedPrimitive | IntPrimitive) {
-  checkPrimitiveType(val, type.type)
-
-  switch (type.type) {
-    case 'bool': {
-      ensureCapacity(w, 1)
-      w.buffer[w.pos++] = val
-      break
-    }
-
-    case 'f32': {
-      ensureCapacity(w, 4)
-
-      // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
-      // to just write directly to the buffer, but unaligned writes aren't
-      // supported by Float32Array.
-      const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
-      // Coerce bigint -> number.
-      dataView.setFloat32(0, typeof val === 'number' ? val : Number(val), true)
-      w.pos += 4
-      break
-    }
-    case 'f64': {
-      ensureCapacity(w, 8)
-
-      const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
-      dataView.setFloat64(0, typeof val === 'number' ? val : Number(val), true)
-      w.pos += 8
-      break
-    }
-
-    case 'u8': case 's8':
-    case 'u16': case 'u32': case 'u64': case 'u128':
-    case 's16': case 's32': case 's64': case 's128':
-      writeInt(w, val, type); break;
-
-    case 'string': {
-      writeString(w, val)
-      break
-    }
-
-    case 'binary': {
-      let valBuffer = val as Uint8Array
-
-      ensureCapacity(w, 9 + valBuffer.byteLength)
-      w.pos += varintEncodeInto(valBuffer.byteLength, w.buffer, w.pos)
-      w.buffer.set(valBuffer, w.pos)
-      w.pos += valBuffer.byteLength
-      break
-    }
-
-    case 'id': {
-      // IDs are encoded as either a string or a number, depending on whether we've seen this ID before.
-      const existingId = w.ids.get(val)
-      if (existingId == null) {
-        // Encode it as a string, but with an extra 0 bit mixed into the length.
-        // This code is lifted from writeString(). It'd be nice to share this code, but .. that'd be gross too.
-        const strBytes = encoder.encode(val)
-        ensureCapacity(w, 9 + strBytes.length)
-        let n = mixBit(strBytes.length, false)
-        w.pos += varintEncodeInto(n, w.buffer, w.pos)
-        w.buffer.set(strBytes, w.pos)
-        w.pos += strBytes.length
-
-        let id = w.ids.size
-        w.ids.set(val, id)
-      } else {
-        let n = mixBit(existingId, true)
-        writeVarInt(w, n)
-      }
-      break
-    }
-
-    default:
-      let exhaustiveCheck: never = type
-      throw Error('nyi type: ' + type)
   }
 }
 
@@ -336,7 +257,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       const innerType = schema.types[type.key]
       if (innerType == null) throw Error(`Schema contains a ref to missing type '${type.key}'`)
       encodeEnum(w, schema, val, innerType, parent)
-      break
+      return
     }
     case 'list': {
       if (!Array.isArray(val)) throw Error('Cannot encode item as list')
@@ -346,7 +267,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       for (const v of val) {
         encodeThing(w, schema, v, fieldType)
       }
-      break
+      return
     }
     case 'map': {
       // Maps can also be provided as a list of [k,v] entries.
@@ -360,20 +281,94 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
         encodeThing(w, schema, k, keyType)
         encodeThing(w, schema, v, valType)
       }
-      break
+      return
     }
-    default:
-      if (!isPrimitive(type.type)) throw Error(`Unknown type '${type.type}' while encoding`)
-      encodePrimitive(w, val, type)
-      break
   }
-  // console.log('encodething returned', type)
+
+  // Fall through to processing primitives. (Everything else is a primitive type)
+  checkPrimitiveType(val, type.type)
+
+  switch (type.type) {
+    case 'bool': {
+      ensureCapacity(w, 1)
+      w.buffer[w.pos++] = val
+      return
+    }
+
+    case 'f32': {
+      ensureCapacity(w, 4)
+
+      // f32 values are stored natively as 4 byte IEEE floats. It'd be nice
+      // to just write directly to the buffer, but unaligned writes aren't
+      // supported by Float32Array.
+      const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 4)
+      // Coerce bigint -> number.
+      dataView.setFloat32(0, typeof val === 'number' ? val : Number(val), true)
+      w.pos += 4
+      return
+    }
+    case 'f64': {
+      ensureCapacity(w, 8)
+
+      const dataView = new DataView(w.buffer.buffer, w.buffer.byteOffset + w.pos, 8)
+      dataView.setFloat64(0, typeof val === 'number' ? val : Number(val), true)
+      w.pos += 8
+      return
+    }
+
+    case 'u8': case 's8':
+    case 'u16': case 'u32': case 'u64': case 'u128':
+    case 's16': case 's32': case 's64': case 's128':
+      writeInt(w, val, type); return;
+
+    case 'string': {
+      writeString(w, val)
+      return
+    }
+
+    case 'binary': {
+      let valBuffer = val as Uint8Array
+
+      ensureCapacity(w, 9 + valBuffer.byteLength)
+      w.pos += varintEncodeInto(valBuffer.byteLength, w.buffer, w.pos)
+      w.buffer.set(valBuffer, w.pos)
+      w.pos += valBuffer.byteLength
+      return
+    }
+
+    case 'id': {
+      // IDs are encoded as either a string or a number, depending on whether we've seen this ID before.
+      const existingId = w.ids.get(val)
+      if (existingId == null) {
+        // Encode it as a string, but with an extra 0 bit mixed into the length.
+        // This code is lifted from writeString(). It'd be nice to share this code, but .. that'd be gross too.
+        const strBytes = encoder.encode(val)
+        ensureCapacity(w, 9 + strBytes.length)
+        let n = mixBit(strBytes.length, false)
+        w.pos += varintEncodeInto(n, w.buffer, w.pos)
+        w.buffer.set(strBytes, w.pos)
+        w.pos += strBytes.length
+
+        let id = w.ids.size
+        w.ids.set(val, id)
+      } else {
+        let n = mixBit(existingId, true)
+        writeVarInt(w, n)
+      }
+      return
+    }
+
+    default:
+      let exhaustiveCheck: never = type
+      throw Error('Unknown type: ' + type)
+  }
+  // Unreachable.
 }
 
 const createWriteBuffer = (): WriteBuffer => ({
   buffer: new Uint8Array(32),
   pos: 0,
-  ids: new Map()
+  ids: new Map([['Default', 0]])
 })
 
 export function writeRaw(schema: Schema, data: any): Uint8Array {
@@ -386,7 +381,7 @@ export function writeRaw(schema: Schema, data: any): Uint8Array {
 
 export function write(schema: Schema, data: any): Uint8Array {
   const writer = createWriteBuffer()
-  const magicBytes = encoder.encode("SB10")
+  const magicBytes = encoder.encode("SB11")
   writer.buffer.set(magicBytes, writer.pos)
   writer.pos += 4
 
