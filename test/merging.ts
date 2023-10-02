@@ -1,6 +1,6 @@
 import * as assert from 'assert/strict'
-import { EnumSchema, EnumVariant, Schema, StructField, StructSchema } from '../lib/schema.js'
-import { enumOfStringsEncoding, enumOfStrings, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String } from '../lib/utils.js'
+import { EnumSchema, EnumVariant, Schema, StructField } from '../lib/schema.js'
+import { enumOfStringsEncoding, enumOfStrings, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
 import { write } from '../lib/write.js'
 import { read } from '../lib/read.js'
 // import {Console} from 'node:console'
@@ -59,14 +59,23 @@ describe('merging', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
-          // encodingOrder: ['age', 'name'],
           foreign: true,
-          fields: new Map<string, StructField>([
-            ['name', {type: String, foreign: true, optional: false}],
-            ['age', {type: prim('u32'), foreign: true, optional: false}],
-            // address: {type: String},
-          ])
+          exhaustive: false,
+          numericOnly: false,
+
+          mapToLocalStruct: true,
+          localStructIsVariant: 'default',
+          variants: new Map([['default', {
+            foreign: false,
+            skip: false,
+            fields: new Map<string, StructField>([
+              ['name', {type: String, foreign: true, optional: false}],
+              ['age', {type: prim('u32'), foreign: true, optional: false}],
+              // address: {type: String},
+            ])
+          }]]),
+
+          // encodingOrder: ['age', 'name'],
         },
         Color: enumOfStringsEncoding('Red', 'Blue'),
       }
@@ -76,17 +85,13 @@ describe('merging', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: {
-          type: 'struct',
-          // encodingOrder: [],
-          fields: new Map<string, StructField>([
+        Contact: structSchema('default', [
             // name: {type: String},
             ['age', {type: prim('u32'), renameFieldTo: 'yearsOld'}],
             ['address', {type: String, defaultValue: 'unknown location'}],
             // ['age', {type: prim('u32'), skip: true, renameFieldTo: 'yearsOld'}],
             // ['address', {type: String, skip: true, defaultValue: 'unknown location'}],
-          ])
-        },
+        ]),
         Color: enumOfStringsEncoding('Red', 'Bronze'),
       }
     }
@@ -95,13 +100,13 @@ describe('merging', () => {
       const merged = mergeSchemas(fileSchema, appSchema)
       // console.log(merged)
 
-      assert.equal(true, (merged.types.Contact as StructSchema).fields.get('name')!.foreign)
-      assert.equal(false, (merged.types.Contact as StructSchema).fields.get('age')!.foreign)
-      assert.equal(false, (merged.types.Contact as StructSchema).fields.get('address')!.foreign)
+      assert.equal(true, merged.types.Contact.variants.get('default')!.fields!.get('name')!.foreign)
+      assert.equal(false, merged.types.Contact.variants.get('default')!.fields!.get('age')!.foreign)
+      assert.equal(false, merged.types.Contact.variants.get('default')!.fields!.get('address')!.foreign)
 
-      assert.equal(false, (merged.types.Color as EnumSchema).variants.get('Red')!.foreign ?? false)
-      assert.equal(true, (merged.types.Color as EnumSchema).variants.get('Blue')!.foreign ?? false)
-      assert.equal(false, (merged.types.Color as EnumSchema).variants.get('Bronze')!.foreign ?? false)
+      assert.equal(false, (merged.types.Color).variants.get('Red')!.foreign ?? false)
+      assert.equal(true, (merged.types.Color).variants.get('Blue')!.foreign ?? false)
+      assert.equal(false, (merged.types.Color).variants.get('Bronze')!.foreign ?? false)
     })
 
     it('merges via opaque data', () => {

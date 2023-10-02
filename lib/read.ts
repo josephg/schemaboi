@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Schema, StructSchema, SType, StructField, IntPrimitive, WrappedPrimitive, AppSchema } from "./schema.js"
+import { EnumObject, EnumSchema, Schema, SType, StructField, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
 import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
@@ -40,7 +40,7 @@ function readString(r: Reader): string {
   return textDecoder.decode(buf)
 }
 
-function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<string, any> | null {
+function readFields(r: Reader, schema: Schema, variant: EnumVariant): Record<string, any> | null {
   // I'm still not sure what we should do in this case. We may still need the data!
   //
   // There are essentially 3 options:
@@ -48,10 +48,12 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   //    this will discard any foreign data.
   // 2. Parse the data but return it in a special way - eg {_foreign: {/* unknown fields */}}
   // 3. Return the array buffer containing the data, but don't parse it.
-  if (struct.foreign) {
-    console.error('in struct:', struct)
-    throw Error(`Foreign struct is not locally recognised!`)
-  }
+  // if (variant.foreign) {
+  //   console.error('in struct:', variant)
+  //   throw Error(`Foreign variant is not locally recognised! TODO - handle this better here`)
+  // }
+
+  if (variant.fields == null || variant.fields.size == 0) throw Error('readFields should not be called for empty variant')
 
   let bitPattern = 0
   let nextBit = 8
@@ -71,7 +73,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
     return !!bit
   }
 
-  // We still need to parse the struct, even if its not locally known to advance the read position.
+  // We still need to parse the fields, even if its not locally known to advance the read position.
   // const result: Record<string, any> | null = struct.foreign ? null : {}
   const result: Record<string, any> = {}
   const missingFields = new Set<string>()
@@ -92,7 +94,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
 
   // We read the data in 2 passes: First we read all the bits (booleans and optionals), then we read
   // the data itself.
-  for (const [k, field] of struct.fields.entries()) {
+  if (variant.fields != null) for (const [k, field] of variant.fields.entries()) {
     let hasValue = field.skip ? false
       : field.optional ? readNextBit()
       : true
@@ -110,7 +112,7 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
   // console.log('missing fields', missingFields)
 
   // Now read the data itself.
-  for (const [k, field] of struct.fields.entries()) {
+  if (variant.fields != null) for (const [k, field] of variant.fields.entries()) {
     // We don't pass over skipped fields because we still need to fill them in with a specified default value.
     if (field.inline) continue // Inlined fields have already been read.
 
@@ -119,10 +121,10 @@ function readStruct(r: Reader, schema: Schema, struct: StructSchema): Record<str
     storeVal(k, field, v)
   }
 
-  return struct.decode ? struct.decode(result!) : result
+  return variant.decode ? variant.decode(result!) : result
 }
 
-function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumObject {
+function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumObject | any {
   const usedVariants = enumVariantsInUse(e)
 
   if (usedVariants.length == 0) throw Error('Cannot decode enum with no variants')
@@ -139,8 +141,8 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
   // console.log('READ variant', variant, schema)
   // Only decode the struct if the encoding names fields.
 
-  const associatedData = variant.associatedData != null && variant.associatedData.fields.size > 0
-    ? readStruct(r, schema, variant.associatedData)
+  const associatedData = variant.fields != null && variant.fields.size > 0
+    ? readFields(r, schema, variant)
     : null
 
   // console.log('associated data', associatedData)
@@ -150,9 +152,14 @@ function readEnum(r: Reader, schema: Schema, e: EnumSchema, parent?: any): EnumO
 
   if (e.decode) {
     return e.decode(variantName, associatedData)
+  } else if (e.mapToLocalStruct) {
+    if (variantName !== e.localStructIsVariant) throw Error('NYI - Bubble up foreign enum')
+    return associatedData
   } else if (variant.foreign) {
-    // The data isn't mapped to a local type. Encode it as {type: '_unknown', data: {...}}.
-    return {type: '_unknown', data: {type: variantName, ...associatedData}}
+    // The data isn't mapped to a local type. Encode it as {type: '_foreign', data: {...}}.
+
+    // TODO: Only encode foreign variants if the enum allows us to do this!
+    return {type: '_foreign', data: {type: variantName, ...associatedData}}
   } else if (e.typeFieldOnParent != null) {
     if (parent == null) throw Error('Cannot write type field on null parent')
     parent[e.typeFieldOnParent] = variantName
@@ -253,9 +260,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
     case 'ref': {
       const inner = schema.types[type.key]
       if (inner.foreign) throw Error('Cannot read foreign struct ' + type.key)
-      if (inner.type === 'struct') return readStruct(r, schema, inner)
-      else if (inner.type === 'enum') return readEnum(r, schema, inner, parent)
-      else { const exhaustiveCheck: never = inner }
+      return readEnum(r, schema, inner, parent)
       break
     }
     case 'list': {
@@ -324,7 +329,8 @@ function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array): [Schem
   }
 
   // Read the schema.
-  const remoteSchema = readThing(reader, metaSchema, metaSchema.root)
+  const remoteSchema: Schema = readThing(reader, metaSchema, metaSchema.root)
+  // console.log('rs', remoteSchema.types.Any.variants.get('int'))
   // console.log(remoteSchema)
   const mergedSchema = localSchema == null ? remoteSchema : mergeSchemas(remoteSchema, localSchema)
   if (localSchema == null) setEverythingLocal(mergedSchema)

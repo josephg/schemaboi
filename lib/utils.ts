@@ -1,4 +1,4 @@
-import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, StructSchema, SType, StructField, EnumVariant, StructOrEnum, IntPrimitive, WrappedPrimitive, Primitive, AppStructField } from "./schema.js"
+import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, SType, StructField, EnumVariant, IntPrimitive, WrappedPrimitive, Primitive, AppStructField } from "./schema.js"
 
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -38,11 +38,11 @@ const mergeObjectsAll = <T>(a: Record<string, T>, b: Record<string, T>, mergeFn:
   return result
 }
 
-const mergeMapsAll = <T>(a: Map<string, T>, b: Map<string, T>, mergeFn: (a: T | null, b: T | null) => T): Map<string, T> => {
+const mergeMapsAll = <T>(a: Map<string, T> | null | undefined, b: Map<string, T> | null | undefined, mergeFn: (a: T | null, b: T | null) => T): Map<string, T> => {
   const result = new Map<string, T>()
   for (const key of mergedMapKeys(a, b)) {
-    const aa = a.get(key) ?? null
-    const bb = b.get(key) ?? null
+    const aa = a?.get(key) ?? null
+    const bb = b?.get(key) ?? null
 
     result.set(key, mergeFn(aa, bb))
   }
@@ -54,9 +54,10 @@ export const mergedObjKeys = (a: Record<string, any>, b: Record<string, any>): I
   new Set([...Object.keys(a), ...Object.keys(b)])
 )
 
-export const mergedMapKeys = <K>(a: Map<K, any>, b: Map<K, any>): Iterable<K> => (
+const emptyMap: Map<any, any> = new Map()
+export const mergedMapKeys = <K>(a: Map<K, any> | null | undefined, b: Map<K, any> | null | undefined): Iterable<K> => (
   // TODO: Remove this list allocation.
-  new Set([...a.keys(), ...b.keys()])
+  new Set([...(a ?? emptyMap).keys(), ...(b ?? emptyMap).keys()])
 )
 
 const objMap = <A, B>(obj: Record<string, A>, mapFn: (a: A, key: string) => B): Record<string, B> => {
@@ -81,38 +82,30 @@ const objMapToMap = <A, B>(obj: Record<string, A> | Map<string, A>, mapFn: (a: A
   return result
 }
 
-function mergeStructs(remote: StructSchema, local: StructSchema): StructSchema {
+function mergeFields(remote: Map<string, StructField> | undefined, local: Map<string, StructField> | undefined): Map<string, StructField> {
   // console.log('merge', a, b)
   // Merge them.
-  return {
-    foreign: local.foreign ?? false,
-    encode: local.encode,
-    decode: local.decode,
+  return mergeMapsAll(remote, local, (remoteF, localF): StructField => {
+    // Check the fields are compatible.
+    // if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
+    //   throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
+    // }
 
-    fields: mergeMapsAll(remote.fields, local.fields, (remoteF, localF): StructField => {
-      // Check the fields are compatible.
-      // if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
-      //   throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
-      // }
+    return {
+      type: localF == null ? remoteF!.type
+        : remoteF == null ? localF!.type
+        : mergeTypes(remoteF.type, localF.type),
+      defaultValue: localF?.defaultValue,
+      foreign: localF ? (localF.foreign ?? false) : true,
+      renameFieldTo: localF?.renameFieldTo,
+      inline: remoteF ? (remoteF.inline ?? false) : (localF!.inline ?? false),
 
-      return {
-        type: localF == null ? remoteF!.type
-          : remoteF == null ? localF!.type
-          : mergeTypes(remoteF.type, localF.type),
-        defaultValue: localF?.defaultValue,
-        foreign: localF ? (localF.foreign ?? false) : true,
-        renameFieldTo: localF?.renameFieldTo,
-        inline: remoteF ? (remoteF.inline ?? false) : (localF!.inline ?? false),
-
-        // TODO: This makes sense for *reading* merged data, but it won't let us write.
-        skip: remoteF ? (remoteF.skip ?? false) : true,
-        optional: remoteF ? remoteF.optional : (localF!.optional ?? false), // If remoteF is null, this field doesn't matter.
-        // encoding: remoteF?.encoding ?? 'unused',
-
-      }
-    }),
-    // encodingOrder: remote.encodingOrder,
-  }
+      // TODO: This makes sense for *reading* merged data, but it won't let us write.
+      skip: remoteF ? (remoteF.skip ?? false) : true,
+      optional: remoteF ? remoteF.optional : (localF!.optional ?? false), // If remoteF is null, this field doesn't matter.
+      // encoding: remoteF?.encoding ?? 'unused',
+    }
+  })
 }
 
 function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
@@ -125,14 +118,15 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
   }
 
   const result: EnumSchema = {
-    type: 'enum',
     foreign: local.foreign ?? false,
     exhaustive: remote.exhaustive || local.exhaustive,
     numericOnly: local.numericOnly,
     typeFieldOnParent: local.typeFieldOnParent,
+    mapToLocalStruct: local.mapToLocalStruct,
+    localStructIsVariant: local.localStructIsVariant,
     encode: local.encode ?? undefined,
     decode: local.decode ?? undefined,
-    variants: new Map,
+    variants: new Map(),
   }
 
   for (const key of mergedMapKeys(remote.variants, local.variants)) {
@@ -147,9 +141,9 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
       : {
           foreign: localV.foreign ?? false,
           skip: remoteV.skip ?? false,
-          associatedData: remoteV.associatedData == null ? localV.associatedData
-            : localV.associatedData == null ? remoteV.associatedData
-            : mergeStructs(remoteV.associatedData, localV.associatedData)
+          encode: localV.encode,
+          decode: localV.decode,
+          fields: mergeFields(remoteV.fields, localV.fields),
         }
     )
   }
@@ -202,27 +196,15 @@ export function mergeSchemas(remote: Schema, local: Schema): Schema {
     id: local.id,
     // root: remote.root,
     root: mergeTypes(remote.root, local.root),
-    types: mergeObjectsAll(remote.types, local.types, (aa, bb): StructOrEnum => {
+    types: mergeObjectsAll(remote.types, local.types, (aa, bb): EnumSchema => {
       if (aa == null) return bb!
       if (bb == null) return {
+        // TODO: This is a dangerous pattern. Are you sure all the fields are set right here?
         ...aa,
         foreign: true,
       }
 
-      if (aa.type !== bb.type) throw Error(`Cannot merge ${aa.type} with ${bb.type}`) // enums and structs can't mix.
-
-      if (aa.type === 'struct') {
-        // Gross allocation.
-        return { type: 'struct', ... mergeStructs(aa, bb as StructSchema) }
-        // return structEq(aa, bb as StructSchema)
-        //   ? aa
-        //   : mergeStructs(aa, bb as StructSchema)
-      } else if (aa.type === 'enum') {
-        return mergeEnums(aa, bb as EnumSchema)
-      } else {
-        let check: never = aa
-        throw Error('unexpected type: ' + aa)
-      }
+      return mergeEnums(aa, bb)
     })
   }
 }
@@ -266,33 +248,41 @@ function extendField(f: AppStructField): StructField {
   }
 }
 
-function extendStruct(s: AppStructSchema): StructSchema {
+function structToEnumVariant(s: AppStructSchema): EnumVariant {
   return {
-    ...s, // Copy encode and decode.
-    fields: objMapToMap(s.fields, f => (
-      typeof f === 'string'
-        ? extendField(extendType(f))
-        : extendField(f)
-    )),
+    skip: false, // ??
+    encode: s.encode,
+    decode: s.decode,
+    fields: objMapToMap(s.fields, f => extendField(extendType(f))),
+  }
+}
+
+function extendStruct(s: AppStructSchema): EnumSchema {
+  return {
+    foreign: false,
+    exhaustive: false,
+    numericOnly: false,
+
+    mapToLocalStruct: true,
+    localStructIsVariant: 'default', // TODO: ??
+
+    variants: new Map([['default', structToEnumVariant(s)]]),
   }
 }
 
 function extendEnum(s: AppEnumSchema): EnumSchema {
-  const variants = Array.isArray(s.variants)
-    ? new Map(s.variants.map((s): [string, EnumVariant] => [s, {}]))
-    : objMapToMap(s.variants, (v): EnumVariant => ({
-        associatedData: (v == null || v === true) ? undefined
-          : 'associatedData' in v ? extendStruct(v.associatedData)
-          : 'fields' in v ? extendStruct(v)
-          : undefined,
-        skip: false,
-      }))
+  const variants = Array.isArray(s.variants) ? new Map(s.variants.map((s): [string, EnumVariant] => [s, {}]))
+    : objMapToMap(s.variants, (v): EnumVariant => (
+      (v == null || v === true) ? {}
+        : 'associatedData' in v ? structToEnumVariant(v.associatedData)
+        : structToEnumVariant(v) // 'fields' in v.
+    ))
 
   return {
-    type: 'enum',
     exhaustive: s.exhaustive ?? false,
     numericOnly: s.numericOnly ?? false,
     typeFieldOnParent: s.typeFieldOnParent,
+    mapToLocalStruct: false,
     encode: s.encode,
     decode: s.decode,
     variants,
@@ -304,7 +294,7 @@ export function extendSchema(schema: AppSchema): Schema {
     id: schema.id,
     root: extendType(schema.root),
     types: objMap(schema.types, s => (
-      s.type === 'enum' ? extendEnum(s) : (extendStruct(s) as StructSchema & {type: 'struct'})
+      s.type === 'enum' ? extendEnum(s) : extendStruct(s)
     ))
   }
 }
@@ -344,7 +334,6 @@ export const enumOfStrings = (...variants: string[]): AppEnumSchema => ({
 })
 
 export const enumOfStringsEncoding = (...variants: string[]): EnumSchema => ({
-  type: 'enum',
   exhaustive: false,
   numericOnly: true,
   variants: new Map(variants.map(v => [v, {}])),
@@ -425,17 +414,28 @@ const fillSTypeDefaults = (t: SType) => {
   }
 }
 
-const fillStructDefaults = (s: StructSchema, foreign: boolean) => {
-  s.foreign ??= foreign
-  s.encode ??= undefined
-  s.decode ??= undefined
-  for (const field of s.fields.values()) {
+// const fillStructDefaults = (s: StructSchema, foreign: boolean) => {
+//   s.foreign ??= foreign
+//   s.encode ??= undefined
+//   s.decode ??= undefined
+//   for (const field of s.fields.values()) {
+//     fillSTypeDefaults(field.type)
+//     field.defaultValue ??= undefined // ??
+//     field.foreign ??= foreign
+//     field.renameFieldTo ??= undefined // ???
+//     field.inline ??= false
+//     field.skip ??= false
+//     field.optional ??= false
+//   }
+// }
+const fillFieldDefaults = (fields: Map<string, StructField>, foreign: boolean) => {
+  for (const field of fields.values()) {
     fillSTypeDefaults(field.type)
     field.defaultValue ??= undefined // ??
     field.foreign ??= foreign
     field.renameFieldTo ??= undefined // ???
     field.inline ??= false
-    field.skip ??= false
+    // field.skip ??= false
     field.optional ??= false
   }
 }
@@ -445,14 +445,16 @@ const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
   s.typeFieldOnParent ??= undefined
   s.encode ??= undefined
   s.decode ??= undefined
+  s.localStructIsVariant ??= undefined
+  s.mapToLocalStruct ??= undefined
   for (const variant of s.variants.values()) {
-    variant.associatedData ??= undefined
     variant.foreign ??= foreign
     variant.skip ??= false
+    variant.encode ??= undefined
+    variant.decode ??= undefined
 
-    if (variant.associatedData) {
-      fillStructDefaults(variant.associatedData, foreign)
-    }
+    variant.fields ??= new Map()
+    fillFieldDefaults(variant.fields, foreign)
   }
 }
 
@@ -460,12 +462,7 @@ const fillEnumDefaults = (s: EnumSchema, foreign: boolean) => {
 export function fillSchemaDefaults(s: Schema, foreign: boolean): Schema {
   fillSTypeDefaults(s.root)
   for (const k in s.types) {
-    const t = s.types[k]
-    switch (t.type) {
-      case 'enum': fillEnumDefaults(t, foreign); break
-      case 'struct': fillStructDefaults(t, foreign); break
-      default: const x: never = t
-    }
+    fillEnumDefaults(s.types[k], foreign)
   }
   return s
 }
@@ -476,18 +473,11 @@ export function setEverythingLocal(s: Schema) {
   for (const k in s.types) {
     const t = s.types[k]
     t.foreign = false
-    if (t.type === 'struct') {
-      for (const f of t.fields.values()) {
-        f.foreign = false
-      }
-    } else {
-      for (const v of t.variants.values()) {
-        v.foreign = false
-        if (v.associatedData) {
-          v.associatedData.foreign = false
-          for (const f of v.associatedData.fields.values()) {
-            f.foreign = false
-          }
+    for (const v of t.variants.values()) {
+      v.foreign = false
+      if (v.fields) {
+        for (const f of v.fields.values()) {
+          f.foreign = false
         }
       }
     }
@@ -529,3 +519,18 @@ export const Bool: SType = prim('bool')
 export const intEncoding = (num: IntPrimitive): 'le' | 'varint' => (
   num.numericEncoding ?? ((num.type === 'u8' || num.type === 's8') ? 'le' : 'varint')
 )
+
+
+export function structSchema(name: string, fields: [string, StructField][]): EnumSchema {
+  return {
+    exhaustive: false,
+    numericOnly: false,
+    mapToLocalStruct: true,
+    localStructIsVariant: name,
+    variants: new Map([[name, {
+      foreign: false,
+      skip: false,
+      fields: new Map(fields)
+    }]])
+  }
+}

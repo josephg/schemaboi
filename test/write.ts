@@ -1,8 +1,8 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { writeRaw } from '../lib/write.js'
-import { Schema, AppSchema, StructField } from '../lib/schema.js'
-import { Bool, extendSchema, prim, ref, String } from '../lib/utils.js'
+import { Schema, AppSchema, StructField, EnumSchema } from '../lib/schema.js'
+import { Bool, extendSchema, prim, ref, String, structSchema } from '../lib/utils.js'
 
 describe('write', () => {
   it('simple test', () => {
@@ -10,17 +10,14 @@ describe('write', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: {
-          type: 'struct',
-          fields: new Map<string, StructField>([
-            ['name', {type: String, optional: true}],
-            ['age', {type: prim('u32')}]
-            // address: {type: String},
-          ])
-        }
+        Contact: structSchema('default', [
+          ['name', {type: String, optional: true}],
+          ['age', {type: prim('u32')}]
+          // address: {type: String},
+        ])
       }
     }
-  
+
     const data = {name: 'seph', age: 21}
 
     const out = writeRaw(schema, data)

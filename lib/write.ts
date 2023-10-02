@@ -1,5 +1,5 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
-import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, StructSchema, SType, WrappedPrimitive } from "./schema.js"
+import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
 import { assert, enumVariantsInUse, extendSchema, extendType, intEncoding, isPrimitive, ref } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 
@@ -205,8 +205,9 @@ function encodePrimitive(w: WriteBuffer, val: any, type: WrappedPrimitive | IntP
  *
  * Note some fields may not need *any* bits to store them (eg enums with only 1 variant).
  */
-function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSchema) {
-  if (struct.encode) val = struct.encode(val)
+function encodeFields(w: WriteBuffer, schema: Schema, val: any, variant: EnumVariant) {
+  // console.log('encodeFields', variant, val)
+  if (variant.encode) val = variant.encode(val)
 
   if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
 
@@ -236,7 +237,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
 
   // First write the bit block.
   const writePass = (writeBit: ((b: boolean) => void) | null, writeThing: ((v: any, type: SType) => void) | null) => {
-    for (const [k, field] of struct.fields.entries()) {
+    if (variant.fields) for (const [k, field] of variant.fields.entries()) {
       if (field.skip) continue
 
       const fieldName = field.renameFieldTo ?? k
@@ -289,7 +290,7 @@ function encodeStruct(w: WriteBuffer, schema: Schema, val: any, struct: StructSc
 // }
 
 // For now I'm just assuming (requiring) a {type: 'variant', ...} shaped object, or a "variant" with no associated data
-function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSchema, parent?: any) {
+function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject | any, e: EnumSchema, parent?: any) {
   // const usedVariants = (e.usedVariants ??= enumUsedStates(e))
   const usedVariants = enumVariantsInUse(e)
 
@@ -299,18 +300,22 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
 
   if (e.encode) val = e.encode(val)
 
-  const variantName = typeof val === 'string' ? val
+  const variantName = e.mapToLocalStruct ? e.localStructIsVariant
+    : typeof val === 'string' ? val
     : e.typeFieldOnParent != null ? parent[e.typeFieldOnParent]
-    : val.type === '_unknown' ? val.data.type
+    : val.type === '_foreign' ? val.data.type
     : val.type
 
-  const associatedData = typeof val === 'string' ? {}
-    : val.type === '_unknown' ? val.data
+  const associatedData = e.mapToLocalStruct ? val
+    : typeof val === 'string' ? {}
+    : val.type === '_foreign' ? val.data
     : val
 
   const variant = e.variants.get(variantName)
   // console.log('WRITE variant', variantName, variant)
   if (variant == null) throw Error(`Unrecognised enum variant: "${variantName}"`)
+
+  // console.log('encodeEnum', e, variantName, 'fields', variant.fields, 'val', val)
 
   if (usedVariants.length >= 2) {
     const variantNum = usedVariants.indexOf(variantName)
@@ -318,30 +323,19 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject, e: EnumSche
     writeVarInt(w, variantNum)
   }
 
-  if (variant.associatedData) {
+  if (variant.fields) {
     // console.log('Encode associated data')
-    encodeStruct(w, schema, associatedData, variant.associatedData)
+    encodeFields(w, schema, associatedData, variant)
   }
 }
 
 function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, parent?: any) {
-  // console.log('encodething', 'pos', w.pos, 'type', type.type, 'val', val)
+  // console.log('encodething', 'pos', w.pos, 'type', type, 'val', val)
   switch (type.type) {
     case 'ref': {
       const innerType = schema.types[type.key]
       if (innerType == null) throw Error(`Schema contains a ref to missing type '${type.key}'`)
-      switch (innerType.type) {
-        case 'struct':
-          // console.log('encode ref', type.key)
-          encodeStruct(w, schema, val, innerType)
-          break
-        case 'enum':
-          encodeEnum(w, schema, val, innerType, parent)
-          break
-        default:
-          const exhaustiveCheck: never = innerType
-      }
-
+      encodeEnum(w, schema, val, innerType, parent)
       break
     }
     case 'list': {
@@ -373,6 +367,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       encodePrimitive(w, val, type)
       break
   }
+  // console.log('encodething returned', type)
 }
 
 export function writeRaw(schema: Schema, data: any): Uint8Array {

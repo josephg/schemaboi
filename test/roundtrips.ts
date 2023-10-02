@@ -1,7 +1,7 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
-import {AppSchema, Schema, EnumSchema, StructField} from "../lib/schema.js"
-import { Bool, enumOfStrings, extendSchema, Id, prim, ref, String } from "../lib/utils.js"
+import {AppSchema, Schema, EnumSchema} from "../lib/schema.js"
+import { Bool, enumOfStrings, extendSchema, Id, prim, ref, String, structSchema } from "../lib/utils.js"
 import { readRaw, read } from "../lib/read.js"
 import { writeRaw, write } from "../lib/write.js"
 
@@ -192,11 +192,10 @@ describe('roundtrips', () => {
       }
 
       let schema = extendSchema(SimpleSchema)
-      ;(schema.types['Color'] as EnumSchema).variants.get('Red')!.foreign = true
-      ;(schema.types['Color'] as EnumSchema).variants.get('RGB')!.foreign = true
-      testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
-      testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'Red'}})
-      testRoundTripFullSchema(schema, {type: '_unknown', data: {type: 'RGB', r: 123, g: 2, b: 1}})
+      schema.types['Color'].variants.get('Red')!.foreign = true
+      schema.types['Color'].variants.get('RGB')!.foreign = true
+      testRoundTripFullSchema(schema, {type: '_foreign', data: {type: 'Red'}})
+      testRoundTripFullSchema(schema, {type: '_foreign', data: {type: 'RGB', r: 123, g: 2, b: 1}})
     })
   })
 
@@ -231,14 +230,10 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Contact'),
         types: {
-          Contact: {
-            type: 'struct',
-            // encodingOrder: [],
-            fields: new Map<string, StructField>([
-              ['name', {type: String}],
-              ['age', {type: prim('u32'), foreign: true}],
-            ])
-          },
+          Contact: structSchema('default', [
+            ['name', {type: String}],
+            ['age', {type: prim('u32'), foreign: true}],
+          ])
         }
       }
 
@@ -251,16 +246,13 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Bools'),
         types: {
-          Bools: {
-            type: 'struct',
-            fields: new Map<string, StructField>([
-              ['a', {type: Bool, optional: false, inline: false}],
-              ['b', {type: Bool, optional: true, inline: false}],
+          Bools: structSchema('default', [
+            ['a', {type: Bool, optional: false, inline: false}],
+            ['b', {type: Bool, optional: true, inline: false}],
 
-              ['c', {type: Bool, optional: false, inline: true}],
-              ['d', {type: Bool, optional: true, inline: true}],
-            ])
-          }
+            ['c', {type: Bool, optional: false, inline: true}],
+            ['d', {type: Bool, optional: true, inline: true}],
+          ])
         }
       }
 
@@ -279,15 +271,12 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Bools'),
         types: {
-          Bools: {
-            type: 'struct',
-            fields: new Map<string, StructField>([
-              ['a', {type: Bool, optional: false, inline: false, defaultValue: true}],
-              ['b', {type: Bool, optional: false, inline: false, defaultValue: false}],
-              ['c', {type: Bool, optional: false, inline: true, defaultValue: true}],
-              ['d', {type: Bool, optional: false, inline: true, defaultValue: false}],
-            ])
-          }
+          Bools: structSchema('default', [
+            ['a', {type: Bool, optional: false, inline: false, defaultValue: true}],
+            ['b', {type: Bool, optional: false, inline: false, defaultValue: false}],
+            ['c', {type: Bool, optional: false, inline: true, defaultValue: true}],
+            ['d', {type: Bool, optional: false, inline: true, defaultValue: false}],
+          ])
         }
       }
 

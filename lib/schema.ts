@@ -49,12 +49,13 @@ export interface StructField {
 
   /**
    * JS: Is this field unknown to the local application? Foreign fields are deserialized in
-   * {_external: {(fields)}}}
+   * {_foreign: {(fields)}}}
    */
   foreign?: boolean,
+  /** Map the external name of this field into a local (application) name */
   renameFieldTo?: string,
 
-  // Is this field be inlined into the bit fields? Currently only supported for booleans.
+  /** Encoding: Is this field be inlined into the bit fields? Currently only supported for booleans. */
   inline?: boolean,
 
 
@@ -77,24 +78,26 @@ export interface StructField {
   // encodeMap?: MapEncoding<any>
 }
 
-export interface StructSchema {
-  type?: 'struct',
+// export interface StructSchema {
+//   // type?: 'struct',
 
-  /** Is the struct locally known / referenced? Defaults to false. */
-  foreign?: boolean,
+//   /** JS: Is the struct unknown by the local application? Defaults to false. */
+//   foreign?: boolean,
 
-  // These methods, if provided, will be called before reading and after writing to prepare the object
-  // for encoding. If used, the schema should express the data *at rest*.
-  encode?: (obj: any) => Record<string, any>,
-  decode?: (obj: Record<string, any>) => any,
+//   // JS: These methods, if provided, will be called before reading and after writing to prepare the object
+//   // for encoding. If used, the schema should express the data *at rest*.
+//   encode?: (obj: any) => Record<string, any>,
+//   decode?: (obj: Record<string, any>) => any,
 
-  fields: Map<string, StructField>,
-}
+//   fields: Map<string, StructField>,
+// }
 
 export interface EnumVariant {
   // renameFieldTo?: string,
-  associatedData?: StructSchema,
-  foreign?: boolean, // JS encoding
+  // associatedData?: StructSchema,
+
+  /** JS: The variant is unknown to the local application. Defaults to false. */
+  foreign?: boolean,
 
   /*
    * We need to know the variant number when encoding or decoding, when the variant is
@@ -111,34 +114,76 @@ export interface EnumVariant {
    *
    * Using a bool here lets us rely on the order in the Map (which is fixed as per
    * the JS spec). Its harder to work with though; which is unfortunately not ideal.
+   *
+   * TODO: Any reason I can't remove this, and just give priority to the remote ordering?
    */
-  skip?: boolean, // This enum was not known by the remote peer and will not show up in the bitstream
+  /** JS: This enum was not known by the remote peer and will not show up in the bitstream */
+  skip?: boolean,
+
+  // JS: These methods, if provided, will be called before reading and after writing to prepare the object
+  // for encoding. If used, the schema should express the data *at rest*.
+  encode?: (obj: any) => Record<string, any>,
+  decode?: (obj: Record<string, any>) => any,
+
+  fields?: Map<string, StructField>,
 }
 
 export interface EnumSchema {
-  type: 'enum',
+  // type: 'enum',
 
+
+  /** JS: The entire type is unknown to the local application. Defaults to false. (TODO: Is this used?? */
   foreign?: boolean,
 
+  /**
+   * The schema contains all variants and cannot be extended. Exhaustive
+   * enums will error if you ever attempt to add more variants via schema
+   * merging.
+   *
+   * TODO: Mark me as optional.
+   */
   exhaustive: boolean,
+
+  /** Encoding: Enum variants do not contain fields - thus they are encoded using numbers. */
   numericOnly: boolean,
+  /** JS: The enum's variant name is on the parent object in the specified field */
   typeFieldOnParent?: string,
+
+  /** JS: The local application only knows this data type as a struct (it was widened remotely) */
+  mapToLocalStruct?: boolean,
+
+  /**
+   * JS: If the enum was widened from a struct in the local application, this is the variant that a struct maps to.
+   *
+   * Note we could use the first variant in the map above - it will almost
+   * always be the first variant. But if the enum is flattened to a struct
+   * (rare), then they might pick one of the other variants to keep.
+   *
+   * This is only relevant if mapToLocalStruct is true.
+   */
+  localStructIsVariant?: string,
 
   encode?: (obj: any) => Record<string, any>,
   decode?: (variant: string, data: Record<string, any> | null) => any,
 
+  /** The union of all known schema variants
+   *
+   * Note the order here matters. The JS spec enforces that the order of items in a Map will be stable.
+   * We use this order when encoding items to assign them all an integer tag.
+   */
   variants: Map<string, EnumVariant>,
+
 
   // usedVariants?: string[], // TODO: Consider caching this.
 
   // encodingOrder: string[],
 }
 
-export type StructOrEnum = StructSchema & {type: 'struct'} | EnumSchema
+// export type StructOrEnum = StructSchema & {type: 'struct'} | EnumSchema
 export interface Schema {
   id: string,
   root: SType, // TODO: Consider making the optional.
-  types: Record<string, StructOrEnum>
+  types: Record<string, EnumSchema>
 }
 
 

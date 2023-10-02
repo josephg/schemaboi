@@ -1,6 +1,6 @@
 import 'mocha'
 import * as assert from 'assert/strict'
-import * as fs from 'fs'
+// import * as fs from 'fs'
 import { writeRaw, metaSchema, readRaw } from '../lib/index.js'
 import { fillSchemaDefaults, mergeSchemas } from '../lib/utils.js'
 

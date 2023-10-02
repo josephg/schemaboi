@@ -2,7 +2,7 @@ import 'mocha'
 import * as assert from 'assert/strict'
 import { readRaw } from '../lib/read.js'
 import { Schema, AppSchema, StructField } from '../lib/schema.js'
-import { extendSchema, mergeSchemas, prim, ref, String } from '../lib/utils.js'
+import { extendSchema, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
 
 import {Console} from 'node:console'
 const console = new Console({
@@ -17,15 +17,11 @@ describe('read', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: {
-          type: 'struct',
-  
-          fields: new Map<string, StructField>([
-            ['age', {type: prim('u32')}],
-            ['name', {type: String}],
-            // address: {type: String},
-          ])
-        }
+        Contact: structSchema('default', [
+          ['age', {type: prim('u32')}],
+          ['name', {type: String}],
+          // address: {type: String},
+        ])
       }
     }
 
@@ -39,19 +35,14 @@ describe('read', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: {
-          type: 'struct',
-          // encodingOrder: ['age', 'name'],
-          foreign: true,
-          fields: new Map<string, StructField>([
-            ['age', {type: prim('u32')}],
-            ['name', {type: String}],
-            // address: {type: String},
-          ])
-        }
+        Contact: structSchema('default', [
+          ['age', {type: prim('u32')}],
+          ['name', {type: String}],
+          // address: {type: String},
+        ])
       }
     }
-  
+
     const appSchema: AppSchema = {
       id: 'Example',
       root: ref('Contact'),

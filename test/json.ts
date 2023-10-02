@@ -69,6 +69,8 @@ const json: AppSchema = {
 }
 const fullSchema = extendSchema(json)
 
+// console.log(fullSchema.types['Any'].variants)
+
 
 const testRoundTrip = (input: any) => {
   const bytes = writeRaw(fullSchema, input)
