@@ -248,7 +248,7 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Contact'),
         types: {
-          Contact: structSchema('default', [
+          Contact: structSchema([
             ['name', {type: String}],
             ['age', {type: prim('u32'), foreign: true}],
           ])
@@ -264,7 +264,7 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Bools'),
         types: {
-          Bools: structSchema('default', [
+          Bools: structSchema([
             ['a', {type: Bool, optional: false, inline: false}],
             ['b', {type: Bool, optional: true, inline: false}],
 
@@ -289,7 +289,7 @@ describe('roundtrips', () => {
         id: 'Example',
         root: ref('Bools'),
         types: {
-          Bools: structSchema('default', [
+          Bools: structSchema([
             ['a', {type: Bool, optional: false, inline: false, defaultValue: true}],
             ['b', {type: Bool, optional: false, inline: false, defaultValue: false}],
             ['c', {type: Bool, optional: false, inline: true, defaultValue: true}],

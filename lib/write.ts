@@ -370,12 +370,14 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
   // console.log('encodething returned', type)
 }
 
+const createWriteBuffer = (): WriteBuffer => ({
+  buffer: new Uint8Array(32),
+  pos: 0,
+  ids: new Map()
+})
+
 export function writeRaw(schema: Schema, data: any): Uint8Array {
-  const writer: WriteBuffer = {
-    buffer: new Uint8Array(32),
-    pos: 0,
-    ids: new Map()
-  }
+  const writer = createWriteBuffer()
 
   encodeThing(writer, schema, data, schema.root)
 
@@ -383,14 +385,10 @@ export function writeRaw(schema: Schema, data: any): Uint8Array {
 }
 
 export function write(schema: Schema, data: any): Uint8Array {
-  const writer: WriteBuffer = {
-    buffer: new Uint8Array(32),
-    pos: 4,
-    ids: new Map()
-  }
-
+  const writer = createWriteBuffer()
   const magicBytes = encoder.encode("SB10")
-  writer.buffer.set(magicBytes, 0)
+  writer.buffer.set(magicBytes, writer.pos)
+  writer.pos += 4
 
   // console.log(schema)
   encodeThing(writer, metaSchema, schema, metaSchema.root)

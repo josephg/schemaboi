@@ -17,7 +17,7 @@ describe('read', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: structSchema('default', [
+        Contact: structSchema([
           ['age', {type: prim('u32')}],
           ['name', {type: String}],
           // address: {type: String},
@@ -35,7 +35,7 @@ describe('read', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: structSchema('default', [
+        Contact: structSchema([
           ['age', {type: prim('u32')}],
           ['name', {type: String}],
           // address: {type: String},

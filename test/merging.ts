@@ -62,8 +62,8 @@ describe('merging', () => {
           foreign: true,
           exhaustive: false,
           numericOnly: false,
-          localStructIsVariant: 'default',
-          variants: new Map([['default', {
+          localStructIsVariant: 'Default',
+          variants: new Map([['Default', {
             foreign: false,
             skip: false,
             fields: new Map<string, Field>([
@@ -83,7 +83,7 @@ describe('merging', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: structSchema('default', [
+        Contact: structSchema([
             // name: {type: String},
             ['age', {type: prim('u32'), renameFieldTo: 'yearsOld'}],
             ['address', {type: String, defaultValue: 'unknown location'}],
@@ -98,9 +98,9 @@ describe('merging', () => {
       const merged = mergeSchemas(fileSchema, appSchema)
       // console.log(merged)
 
-      assert.equal(true, merged.types.Contact.variants.get('default')!.fields!.get('name')!.foreign)
-      assert.equal(false, merged.types.Contact.variants.get('default')!.fields!.get('age')!.foreign)
-      assert.equal(false, merged.types.Contact.variants.get('default')!.fields!.get('address')!.foreign)
+      assert.equal(true, merged.types.Contact.variants.get('Default')!.fields!.get('name')!.foreign)
+      assert.equal(false, merged.types.Contact.variants.get('Default')!.fields!.get('age')!.foreign)
+      assert.equal(false, merged.types.Contact.variants.get('Default')!.fields!.get('address')!.foreign)
 
       assert.equal(false, (merged.types.Color).variants.get('Red')!.foreign ?? false)
       assert.equal(true, (merged.types.Color).variants.get('Blue')!.foreign ?? false)
@@ -156,8 +156,8 @@ describe('merging', () => {
           foreign: false,
           exhaustive: false,
           numericOnly: false,
-          localStructIsVariant: 'default',
-          variants: new Map<string, EnumVariant>([['default', {
+          localStructIsVariant: 'Default',
+          variants: new Map<string, EnumVariant>([['Default', {
             foreign: false,
             fields: new Map<string, Field>([
               ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false}],

@@ -22,8 +22,8 @@ describe('metaschema', () => {
     fillSchemaDefaults(remoteSchema, false)
     let rm = mergeSchemas(remoteSchema, metaSchema)
 
-    // console.log(rm.types.Field.variants.get('default'))
-    // console.log(remoteSchema.types.Field.variants.get('default'))
+    // console.log(rm.types.Field.variants.get('Default'))
+    // console.log(remoteSchema.types.Field.variants.get('Default'))
     assert.deepEqual(metaSchema, rm)
 
     // console.log(bytes)

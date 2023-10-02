@@ -10,7 +10,7 @@ describe('write', () => {
       id: 'Example',
       root: ref('Contact'),
       types: {
-        Contact: structSchema('default', [
+        Contact: structSchema([
           ['name', {type: String, optional: true}],
           ['age', {type: prim('u32')}]
           // address: {type: String},

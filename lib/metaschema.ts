@@ -40,7 +40,7 @@ export const metaSchema: Schema = {
   root: ref('Schema'),
 
   types: {
-    Schema: structSchema('Schema', [
+    Schema: structSchema([
       ['id', { type: String }],
 
       // Should this be optional or not?
@@ -83,14 +83,14 @@ export const metaSchema: Schema = {
       ]),
     },
 
-    TypeDef: structSchema('Enum', [
+    TypeDef: structSchema([
       ['foreign', { type: Bool, defaultValue: true, skip: true }], // Not stored.
       ['exhaustive', { type: Bool, inline: true }],
       ['numericOnly', { type: Bool, inline: true }],
       ['variants', { type: mapOf(ref('EnumVariant'), 'map') }],
     ]),
 
-    EnumVariant: structSchema('default', [
+    EnumVariant: structSchema([
       ['fields', { type: mapOf(ref('Field'), 'map'), optional: true, defaultValue: null }],
     ], {
       encode(obj: EnumVariant) {
@@ -102,7 +102,7 @@ export const metaSchema: Schema = {
       }
     }),
 
-    Field: structSchema('default', [
+    Field: structSchema([
       ['type', { type: ref('Type') }],
 
       // These fields are local only.

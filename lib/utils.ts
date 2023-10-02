@@ -260,9 +260,9 @@ function extendStruct(s: AppStructSchema): EnumSchema {
     exhaustive: false,
     numericOnly: false,
 
-    localStructIsVariant: 'default', // TODO: ??
+    localStructIsVariant: 'Default', // TODO: ??
 
-    variants: new Map([['default', structToEnumVariant(s)]]),
+    variants: new Map([['Default', structToEnumVariant(s)]]),
   }
 }
 
@@ -517,12 +517,12 @@ export const intEncoding = (num: IntPrimitive): 'le' | 'varint' => (
 )
 
 
-export function structSchema(name: string, fields: [string, Field][], extras?: any): EnumSchema {
+export function structSchema(fields: [string, Field][], extras?: any): EnumSchema {
   return {
     exhaustive: false,
     numericOnly: false,
-    localStructIsVariant: name,
-    variants: new Map<string, EnumVariant>([[name, {
+    localStructIsVariant: 'Default',
+    variants: new Map<string, EnumVariant>([['Default', {
       foreign: false,
       fields: new Map(fields)
     }]]),
