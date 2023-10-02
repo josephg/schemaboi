@@ -1,6 +1,6 @@
 // The metaschema is a schema that is embedded in files to make schemaboi data self describing.
 
-import {EnumSchema, EnumVariant, IntPrimitive, MapType, Schema, StructField, SType} from './schema.js'
+import {EnumSchema, EnumVariant, IntPrimitive, MapType, Schema, Field, SType} from './schema.js'
 import { Bool, enumOfStringsEncoding, extendType, Id, intEncoding, ref, String, structSchema } from './utils.js'
 
 // import * as assert from 'assert/strict'
@@ -58,7 +58,7 @@ export const metaSchema: Schema = {
       variants: new Map<string, EnumVariant>([
         ...['bool', 'string', 'binary', 'id', 'f32', 'f64'].map((t): [string, EnumVariant] => [t, {}]),
         ...['u8', 'u16', 'u32', 'u64', 'u128', 's8', 's16', 's32', 's64', 's128'].map((t): [string, EnumVariant] => [t, {
-          fields: new Map<string, StructField>([
+          fields: new Map<string, Field>([
             ['encoding', {
               type: ref('NumberEncoding'),
               renameFieldTo: 'numericEncoding',
@@ -67,13 +67,13 @@ export const metaSchema: Schema = {
           ])
         }]),
         ['ref', {
-          fields: new Map<string, StructField>([['key', { type: Id }]]),
+          fields: new Map<string, Field>([['key', { type: Id }]]),
         }],
         ['list', {
-          fields: new Map<string, StructField>([['fieldType', { type: ref('Type') }]]),
+          fields: new Map<string, Field>([['fieldType', { type: ref('Type') }]]),
         }],
         ['map', {
-          fields: new Map<string, StructField>([
+          fields: new Map<string, Field>([
             ['keyType', { type: ref('Type') }],
             ['valType', { type: ref('Type') }],
             // Type should be enumOfStrings('object', 'map', 'entryList'), but it doesn't matter.

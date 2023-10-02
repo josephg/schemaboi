@@ -1,7 +1,7 @@
 import 'mocha'
 import * as assert from 'assert/strict'
 import { readRaw } from '../lib/read.js'
-import { Schema, AppSchema, StructField } from '../lib/schema.js'
+import { Schema, AppSchema, Field } from '../lib/schema.js'
 import { extendSchema, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
 
 import {Console} from 'node:console'

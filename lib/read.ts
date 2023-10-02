@@ -1,6 +1,6 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
-import { EnumObject, EnumSchema, Schema, SType, StructField, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
+import { EnumObject, EnumSchema, Schema, SType, Field, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
 import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
@@ -78,7 +78,7 @@ function readFields(r: Reader, schema: Schema, variant: EnumVariant): Record<str
   const result: Record<string, any> = {}
   const missingFields = new Set<string>()
 
-  const storeVal = (k: string, field: StructField, v: any) => {
+  const storeVal = (k: string, field: Field, v: any) => {
     // TODO: There's a sorta bug here: We haven't read all the other fields of the object.
     v ??= typeof field.defaultValue === 'function'
       ? field.defaultValue(result)

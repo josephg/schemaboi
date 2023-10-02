@@ -34,7 +34,7 @@ export type SType = WrappedPrimitive | IntPrimitive | Ref | List | MapType
 
 // export type EncodingStrategy = 'field' | 'optional field' | 'bits'
 
-export interface StructField {
+export interface Field {
   type: SType, // Schema type
 
   /**
@@ -78,20 +78,6 @@ export interface StructField {
   // encodeMap?: MapEncoding<any>
 }
 
-// export interface StructSchema {
-//   // type?: 'struct',
-
-//   /** JS: Is the struct unknown by the local application? Defaults to false. */
-//   foreign?: boolean,
-
-//   // JS: These methods, if provided, will be called before reading and after writing to prepare the object
-//   // for encoding. If used, the schema should express the data *at rest*.
-//   encode?: (obj: any) => Record<string, any>,
-//   decode?: (obj: Record<string, any>) => any,
-
-//   fields: Map<string, StructField>,
-// }
-
 export interface EnumVariant {
   // renameFieldTo?: string,
   // associatedData?: StructSchema,
@@ -104,7 +90,7 @@ export interface EnumVariant {
   encode?: (obj: any) => Record<string, any>,
   decode?: (obj: Record<string, any>) => any,
 
-  fields?: Map<string, StructField>,
+  fields?: Map<string, Field>,
 }
 
 export interface EnumSchema {

@@ -1,5 +1,5 @@
 import * as assert from 'assert/strict'
-import { EnumSchema, EnumVariant, Schema, StructField } from '../lib/schema.js'
+import { EnumSchema, EnumVariant, Schema, Field } from '../lib/schema.js'
 import { enumOfStringsEncoding, enumOfStrings, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
 import { write } from '../lib/write.js'
 import { read } from '../lib/read.js'
@@ -66,7 +66,7 @@ describe('merging', () => {
           variants: new Map([['default', {
             foreign: false,
             skip: false,
-            fields: new Map<string, StructField>([
+            fields: new Map<string, Field>([
               ['name', {type: String, foreign: true, optional: false}],
               ['age', {type: prim('u32'), foreign: true, optional: false}],
               // address: {type: String},
@@ -159,7 +159,7 @@ describe('merging', () => {
           localStructIsVariant: 'default',
           variants: new Map<string, EnumVariant>([['default', {
             foreign: false,
-            fields: new Map<string, StructField>([
+            fields: new Map<string, Field>([
               ['name', {type: String, foreign: false, skip: false, defaultValue: 'Bruce', optional: false}],
               ['address', {type: String, foreign: true, skip: false, optional: false}],
               ['phoneNo', {type: String, foreign: false, skip: true, optional: false}],

@@ -1,4 +1,4 @@
-import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, SType, StructField, EnumVariant, IntPrimitive, WrappedPrimitive, Primitive, AppStructField } from "./schema.js"
+import { AppEnumSchema, AppStructSchema, EnumSchema, List, MapType, AppSchema, Ref, Schema, SType, Field, EnumVariant, IntPrimitive, WrappedPrimitive, Primitive, AppStructField } from "./schema.js"
 
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -82,10 +82,10 @@ const objMapToMap = <A, B>(obj: Record<string, A> | Map<string, A>, mapFn: (a: A
   return result
 }
 
-function mergeFields(remote: Map<string, StructField> | undefined, local: Map<string, StructField> | undefined): Map<string, StructField> {
+function mergeFields(remote: Map<string, Field> | undefined, local: Map<string, Field> | undefined): Map<string, Field> {
   // console.log('merge', a, b)
   // Merge them.
-  return mergeMapsAll(remote, local, (remoteF, localF): StructField => {
+  return mergeMapsAll(remote, local, (remoteF, localF): Field => {
     // Check the fields are compatible.
     // if (remoteF && localF && !typesShallowEq(remoteF.type, localF.type)) {
     //   throw Error(`Incompatible types in struct field: '${remoteF.type.type}' != '${localF.type.type}'`)
@@ -233,7 +233,7 @@ const getType = (t: SType | Primitive | string): string => (
   typeof t === 'object' ? t.type : t
 )
 
-function extendField(f: AppStructField): StructField {
+function extendField(f: AppStructField): Field {
   // console.log('extendField', f, cloneType(f))
   return {
     type: cloneType(f),
@@ -424,7 +424,7 @@ const fillSTypeDefaults = (t: SType) => {
 //     field.optional ??= false
 //   }
 // }
-const fillFieldDefaults = (fields: Map<string, StructField>, foreign: boolean) => {
+const fillFieldDefaults = (fields: Map<string, Field>, foreign: boolean) => {
   for (const field of fields.values()) {
     fillSTypeDefaults(field.type)
     field.defaultValue ??= undefined // ??
@@ -517,7 +517,7 @@ export const intEncoding = (num: IntPrimitive): 'le' | 'varint' => (
 )
 
 
-export function structSchema(name: string, fields: [string, StructField][], extras?: any): EnumSchema {
+export function structSchema(name: string, fields: [string, Field][], extras?: any): EnumSchema {
   return {
     exhaustive: false,
     numericOnly: false,
