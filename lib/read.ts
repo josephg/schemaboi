@@ -278,7 +278,7 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       const keyType = canonicalizeType(type.keyType)
       const valType = canonicalizeType(type.valType)
       if (type.decodeForm == null || type.decodeForm == 'object') {
-        if (keyType.type !== 'string' && keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
+        if (keyType.type !== 'string' && keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript. Use Map decodeFrom.')
         const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
           const k = readPrimitive(r, keyType)
@@ -335,7 +335,7 @@ export function read(localSchema: Schema | null, data: Uint8Array, reqType?: str
 
   // Read the data.
   reader.ids.length = 0
-  return [remoteSchema, readThing(reader, mergedSchema, chooseRootType(mergedSchema, reqType))]
+  return [mergedSchema, readThing(reader, mergedSchema, chooseRootType(mergedSchema, reqType))]
 }
 
 export function readAppSchema(appSchema: AppSchema, data: Uint8Array): [Schema, any] {

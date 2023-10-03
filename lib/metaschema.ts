@@ -77,7 +77,7 @@ export const metaSchema: Schema = {
             ['keyType', { type: ref('Type') }],
             ['valType', { type: ref('Type') }],
             // Type should be enumOfStrings('object', 'map', 'entryList'), but it doesn't matter.
-            ['decodeForm', { type: String, skip: true, defaultValue: 'object' }],
+            ['decodeForm', { type: String, skip: true, defaultValue: 'map' }],
           ]),
         }],
       ]),

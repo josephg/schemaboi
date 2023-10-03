@@ -1,7 +1,5 @@
 import 'mocha'
 import { AppSchema, extendSchema, ref, list, map } from '../lib/index.js'
-import { write, writeAppSchema, writeRaw } from '../lib/write.js'
-import { read, readRaw } from '../lib/read.js'
 import * as assert from 'assert/strict'
 import { testSimpleRoundTrip } from './testhelpers.js'
 
