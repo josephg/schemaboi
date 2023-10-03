@@ -1,9 +1,10 @@
 import { Schema, AppSchema } from "../lib/schema.js"
-import { enumOfStrings, extendSchema, ref, fillSchemaDefaults } from "../lib/utils.js"
+import { enumOfStrings, ref, fillSchemaDefaults } from "../lib/utils.js"
 import fs from 'fs'
 import { writeRaw, write } from "../lib/write.js"
 import { metaSchema } from "../lib/metaschema.js"
 import { readRaw } from "../lib/read.js"
+import { extendSchema } from '../lib/extendschema.js'
 import * as assert from 'assert/strict'
 
 // import {Console} from 'node:console'

@@ -1,6 +1,7 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
-import { assert, chooseRootType, enumVariantsInUse, extendSchema, canonicalizeType, intEncoding, isPrimitive, ref } from "./utils.js"
+import { assert, chooseRootType, enumVariantsInUse, canonicalizeType, intEncoding, isPrimitive, ref } from "./utils.js"
+import { extendSchema } from './extendschema.js'
 import { metaSchema } from "./metaschema.js"
 
 // import assert from 'assert/strict'

@@ -1,6 +1,7 @@
 import * as assert from 'assert/strict'
 import { EnumSchema, EnumVariant, Schema, Field } from '../lib/schema.js'
-import { enumOfStringsEncoding, enumOfStrings, extendSchema, fillSchemaDefaults, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
+import { enumOfStringsEncoding, enumOfStrings, fillSchemaDefaults, mergeSchemas, prim, ref, String, structSchema } from '../lib/utils.js'
+import { extendSchema } from '../lib/extendschema.js'
 import { write } from '../lib/write.js'
 import { read } from '../lib/read.js'
 // import {Console} from 'node:console'
@@ -121,7 +122,6 @@ describe('merging', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             name: 'string',
             address: 'string',
@@ -136,7 +136,6 @@ describe('merging', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             name: {type: 'string', defaultValue: 'Bruce'},
             phoneNo: {type: 'string'},

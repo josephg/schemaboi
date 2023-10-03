@@ -1,5 +1,6 @@
 export * from './schema.js'
 export * from './read.js'
 export * from './write.js'
-export {mergeSchemas, extendSchema, ref, list, prim, map, enumOfStrings, isInt, isPrimitive, primitiveTypes} from './utils.js'
+export {mergeSchemas, ref, list, prim, map, enumOfStrings, isInt, isPrimitive, primitiveTypes} from './utils.js'
+export { extendSchema } from './extendschema.js'
 export {metaSchema} from './metaschema.js'

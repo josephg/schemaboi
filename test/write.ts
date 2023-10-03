@@ -2,7 +2,8 @@ import 'mocha'
 import * as assert from 'assert/strict'
 import { writeRaw } from '../lib/write.js'
 import { Schema, AppSchema, Field, EnumSchema } from '../lib/schema.js'
-import { Bool, extendSchema, prim, ref, String, structSchema } from '../lib/utils.js'
+import { Bool, prim, ref, String, structSchema } from '../lib/utils.js'
+import { extendSchema } from '../lib/extendschema.js'
 
 describe('write', () => {
   it('simple test', () => {
