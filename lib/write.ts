@@ -131,7 +131,7 @@ function encodeFields(w: WriteBuffer, schema: Schema, val: any, variant: EnumVar
   // console.log('encodeFields', variant, val)
   if (variant.encode) val = variant.encode(val)
 
-  if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Invalid struct')
+  if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Cannot encode fields in val: ' + JSON.stringify(val))
 
   // let encodingBits = true
 

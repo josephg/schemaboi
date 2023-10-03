@@ -1,5 +1,5 @@
 import 'mocha'
-import { AppSchema, extendSchema, ref, list, map } from '../lib/index.js'
+import { AppSchema, extendSchema, ref, list, map, testSimpleRoundTrip } from '../lib/index.js'
 import { write, writeAppSchema, writeRaw } from '../lib/write.js'
 import { read, readRaw } from '../lib/read.js'
 import * as assert from 'assert/strict'
@@ -67,36 +67,21 @@ const json: AppSchema = {
     }
   }
 }
-const fullSchema = extendSchema(json)
+// const fullSchema = extendSchema(json)
 
 // console.log(fullSchema.types['Any'].variants)
 
-
-const testRoundTrip = (input: any) => {
-  const bytes = writeRaw(fullSchema, input)
-  // console.log('roundtrip', input, bytes)
-  const result = readRaw(fullSchema, bytes)
-
-  assert.deepEqual(result, input)
-
-  {
-    const opaque = write(fullSchema, input)
-    const [fileSchema, result] = read(fullSchema, opaque)
-    assert.deepEqual(result, input)
-  }
-}
-
 describe('json encoding', () => {
   it('can encode and decode simple values', () => {
-    testRoundTrip(60)
-    testRoundTrip(true)
-    testRoundTrip(false)
-    testRoundTrip(null)
-    testRoundTrip("hi")
-    testRoundTrip(["hi"])
-    testRoundTrip({hi: true})
-    testRoundTrip([{hi: true}])
-    testRoundTrip([[[]]])
-    testRoundTrip({x:{y:{z:{}}}})
+    testSimpleRoundTrip(json, 'Any', 60)
+    testSimpleRoundTrip(json, 'Any', true)
+    testSimpleRoundTrip(json, 'Any', false)
+    testSimpleRoundTrip(json, 'Any', null)
+    testSimpleRoundTrip(json, 'Any', "hi")
+    testSimpleRoundTrip(json, 'Any', ["hi"])
+    testSimpleRoundTrip(json, 'Any', {hi: true})
+    testSimpleRoundTrip(json, 'Any', [{hi: true}])
+    testSimpleRoundTrip(json, 'Any', [[[]]])
+    testSimpleRoundTrip(json, 'Any', {x:{y:{z:{}}}})
   })
 })

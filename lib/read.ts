@@ -318,7 +318,7 @@ export function readRaw(schema: Schema, data: Uint8Array, reqType?: string | STy
   return readThing(createReader(data), schema, chooseRootType(schema, reqType))
 }
 
-function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array, reqType?: string | SType): [Schema, any] {
+export function read(localSchema: Schema | null, data: Uint8Array, reqType?: string | SType): [Schema, any] {
   // A SB file starts with "SB10" for schemaboi version 1.0.
   const magic = textDecoder.decode(data.slice(0, 4))
   if (magic !== 'SB11') throw Error('Magic bytes do not match: Expected SBXX.')
@@ -338,15 +338,11 @@ function readOpaqueDataRaw(localSchema: Schema | null, data: Uint8Array, reqType
   return [remoteSchema, readThing(reader, mergedSchema, chooseRootType(mergedSchema, reqType))]
 }
 
-export function read(localSchema: Schema, data: Uint8Array): [Schema, any] {
-  return readOpaqueDataRaw(localSchema, data)
-}
-
 export function readAppSchema(appSchema: AppSchema, data: Uint8Array): [Schema, any] {
   const localSchema = extendSchema(appSchema)
-  return readOpaqueDataRaw(localSchema, data)
+  return read(localSchema, data)
 }
 
 export function readWithoutSchema(data: Uint8Array): [Schema, any] {
-  return readOpaqueDataRaw(null, data)
+  return read(null, data)
 }
