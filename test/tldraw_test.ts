@@ -20,7 +20,6 @@ const tldrawTest = () => {
     root: {type: 'list', fieldType: ref('Shape')},
     types: {
       Shape: {
-        type: 'struct',
         fields: {
           x: 'f32',
           y: 'f32',
@@ -101,7 +100,6 @@ const tldrawTest = () => {
       },
 
       Vec2: {
-        type: 'struct',
         fields: {
           x: 'f32',
           y: 'f32',
@@ -109,7 +107,6 @@ const tldrawTest = () => {
       },
 
       ArrowEnd: {
-        type: 'struct',
         fields: {
           x: 'f32',
           y: 'f32',

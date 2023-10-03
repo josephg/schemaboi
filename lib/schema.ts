@@ -6,8 +6,8 @@ export type Ref = {type: 'ref', key: string} // Reference to another type in the
 export type List = {type: 'list', fieldType: SType}
 export interface MapType { // MapType rather than Map because Map is the name of a builtin type.
   type: 'map',
-  keyType: SType | string, // TODO: Consider making key type default to 'string' here in JS land.
-  valType: SType | string,
+  keyType: SType, // TODO: Consider making key type default to 'string' here in JS land.
+  valType: SType,
   // asEntryList?: true,
   decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
 }
@@ -164,7 +164,7 @@ export interface Schema {
 export interface AppSchema {
   id: string,
   root?: SType | Primitive | string, // TODO: Consider making this optional.
-  types: Record<string, AppStructSchema & {type: 'struct'} | AppEnumSchema>
+  types: Record<string, AppStructSchema | AppEnumSchema>
 }
 
 // The type is inlined into the struct field to make things way simpler.

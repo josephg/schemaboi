@@ -48,7 +48,6 @@ describe('read', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             // name: {type: String},
             age: {type: 'u32', optional: true, renameFieldTo: 'yearsOld'},

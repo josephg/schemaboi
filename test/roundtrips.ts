@@ -1,7 +1,7 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
 import {AppSchema, Schema, EnumSchema} from "../lib/schema.js"
-import { Bool, enumOfStrings, extendSchema, Id, list, prim, ref, String, structSchema } from "../lib/utils.js"
+import { Bool, enumOfStrings, extendSchema, Id, list, map, prim, ref, String, structSchema } from "../lib/utils.js"
 import { readRaw, read } from "../lib/read.js"
 import { writeRaw, write } from "../lib/write.js"
 
@@ -64,17 +64,17 @@ describe('roundtrips', () => {
     it('works with maps', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64'},
+        root: map('string', 'f64'),
         types: {}
       }
-    
+
       testRoundTrip(schema, {aa: 123, bb: 213.23})
     })
 
     it('works with maps using entry list decoding form', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'entryList'},
+        root: map('string', 'f64', 'entryList'),
         types: {}
       }
 
@@ -86,7 +86,7 @@ describe('roundtrips', () => {
     it('works with maps using map decoding form', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'map', keyType: 'string', valType: 'f64', decodeForm: 'map'},
+        root: map('string', 'f64', 'map'),
         types: {}
       }
     
@@ -102,7 +102,6 @@ describe('roundtrips', () => {
       root: 'Contact',
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             name: 'string',
           }
@@ -119,7 +118,6 @@ describe('roundtrips', () => {
       root: 'Contact',
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             // name: 'string',
             notSaved: {type: 'string', skip: true, defaultValue: 'secrets'},
@@ -165,7 +163,6 @@ describe('roundtrips', () => {
               Red: null,
               RGB: {
                 associatedData: {
-                  type: 'struct',
                   fields: {
                     r: {type: 'u8', optional: true},
                     g: {type: 'u8', optional: true},
@@ -226,7 +223,6 @@ describe('roundtrips', () => {
         root: 'Contact',
         types: {
           Contact: {
-            type: 'struct',
             fields: {
               name: {type: 'string', optional: true},
               age: {type: 'u32', optional: true},
@@ -312,7 +308,6 @@ describe('roundtrips', () => {
           root: 'NumTest',
           types: {
             NumTest: {
-              type: 'struct',
               fields: {
                 u8V: {type: 'u8', numericEncoding: 'varint'},
                 s8V: {type: 's8', numericEncoding: 'varint'},
@@ -355,7 +350,6 @@ describe('roundtrips', () => {
           root: 'NumTest',
           types: {
             NumTest: {
-              type: 'struct',
               fields: {
                 u8V: {type: 'u8', decodeAsBigInt: true, numericEncoding: 'varint'},
                 s8V: {type: 's8', decodeAsBigInt: true, numericEncoding: 'varint'},
@@ -390,7 +384,6 @@ describe('roundtrips', () => {
         root: {type: 'list', fieldType: ref('IdTest')},
         types: {
           IdTest: {
-            type: 'struct',
             fields: {
               foo: 'id',
               bar: 'id',

@@ -17,7 +17,6 @@ describe('extend', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             name: 'string',
             address: 'string',
@@ -32,7 +31,6 @@ describe('extend', () => {
             Line: null,
             Square: {
               associatedData: {
-                type: 'struct',
                 fields: { x: {type: 'f32'}, y: 'f32'}
               }
             }

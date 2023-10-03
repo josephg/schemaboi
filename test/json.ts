@@ -1,5 +1,5 @@
 import 'mocha'
-import { AppSchema, extendSchema, ref, list } from '../lib/index.js'
+import { AppSchema, extendSchema, ref, list, map } from '../lib/index.js'
 import { write, writeAppSchema, writeRaw } from '../lib/write.js'
 import { read, readRaw } from '../lib/read.js'
 import * as assert from 'assert/strict'
@@ -61,7 +61,7 @@ const json: AppSchema = {
         string: {fields: {val: 'string'}},
         int: {fields: {val: 's64'}},
         float: {fields: {val: 'f64'}},
-        object: {fields: {val: {type: 'map', keyType: 'string', valType: 'Any', decodeForm: 'object'}}},
+        object: {fields: {val: map('string', 'Any', 'object')}},
         list: {fields: {val: list('Any')}},
       }
     }
