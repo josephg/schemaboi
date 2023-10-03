@@ -2,7 +2,13 @@
   "name": "schemaboi",
   "version": "0.1.1",
   "description": "Binary serialization library with long-now schema migration and app support",
-  "main": "dist/lib/index.js",
+  "exports": {
+    ".": "./dist/lib/index.js",
+    "./testhelpers.js": {
+      "default": "./dist/lib/testhelpers.js",
+      "types": "./dist/lib/testhelpers.d.ts"
+    }
+  },
   "types": "dist/lib/index.d.ts",
   "repository": "https://github.com/josephg/schemaboi.git",
   "author": "Seph Gentle <me@josephg.com>",
