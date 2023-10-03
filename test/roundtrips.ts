@@ -1,7 +1,7 @@
 // This file checks that we can store a bunch of stuff, and when we do we get the same data back out.
 import 'mocha'
 import {AppSchema, Schema, EnumSchema} from "../lib/schema.js"
-import { Bool, enumOfStrings, extendSchema, Id, prim, ref, String, structSchema } from "../lib/utils.js"
+import { Bool, enumOfStrings, extendSchema, Id, list, prim, ref, String, structSchema } from "../lib/utils.js"
 import { readRaw, read } from "../lib/read.js"
 import { writeRaw, write } from "../lib/write.js"
 
@@ -54,7 +54,7 @@ describe('roundtrips', () => {
     it('works with lists', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'list', fieldType: 'f64'},
+        root: list('f64'),
         types: {}
       }
 
@@ -230,7 +230,7 @@ describe('roundtrips', () => {
             fields: {
               name: {type: 'string', optional: true},
               age: {type: 'u32', optional: true},
-              addresses: {type: 'list', fieldType: 'string', optional: true}
+              addresses: {type: 'list', fieldType: {type:'string'}, optional: true}
               // address: {type: String},
             }
           }
@@ -387,7 +387,7 @@ describe('roundtrips', () => {
     it('ids', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: {type: 'list', fieldType: 'IdTest'},
+        root: {type: 'list', fieldType: ref('IdTest')},
         types: {
           IdTest: {
             type: 'struct',

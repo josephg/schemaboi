@@ -3,7 +3,7 @@
 //   | 's8' | 's16' | 's32' | 's64' | 's128'
 
 export type Ref = {type: 'ref', key: string} // Reference to another type in the type oracle
-export type List = {type: 'list', fieldType: SType | string}
+export type List = {type: 'list', fieldType: SType}
 export interface MapType { // MapType rather than Map because Map is the name of a builtin type.
   type: 'map',
   keyType: SType | string, // TODO: Consider making key type default to 'string' here in JS land.

@@ -17,7 +17,7 @@ const tldrawTest = () => {
   const testSchema: AppSchema = {
     id: 'Shape',
     // root: ref('Shape'),
-    root: {type: 'list', fieldType: 'Shape'},
+    root: {type: 'list', fieldType: ref('Shape')},
     types: {
       Shape: {
         type: 'struct',

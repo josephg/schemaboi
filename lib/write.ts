@@ -1,6 +1,6 @@
 import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
-import { assert, chooseRootType, enumVariantsInUse, extendSchema, extendType, intEncoding, isPrimitive, ref } from "./utils.js"
+import { assert, chooseRootType, enumVariantsInUse, extendSchema, canonicalizeType, intEncoding, isPrimitive, ref } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 
 // import assert from 'assert/strict'
@@ -263,9 +263,9 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       if (!Array.isArray(val)) throw Error('Cannot encode item as list')
       writeVarInt(w, val.length)
       // TODO: Consider special-casing bit arrays.
-      const fieldType = extendType(type.fieldType)
+      // const fieldType = extendType(type.fieldType)
       for (const v of val) {
-        encodeThing(w, schema, v, fieldType)
+        encodeThing(w, schema, v, type.fieldType)
       }
       return
     }
@@ -275,8 +275,8 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
         : val instanceof Map ? Array.from(val.entries()) // TODO: Remove this allocation.
         : Object.entries(val)
       writeVarInt(w, entries.length)
-      const keyType = extendType(type.keyType)
-      const valType = extendType(type.valType)
+      const keyType = canonicalizeType(type.keyType)
+      const valType = canonicalizeType(type.valType)
       for (const [k, v] of entries) {
         encodeThing(w, schema, k, keyType)
         encodeThing(w, schema, v, valType)

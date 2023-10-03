@@ -2,7 +2,7 @@
 
 import { EnumObject, EnumSchema, Schema, SType, Field, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
 import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
-import { intEncoding, enumVariantsInUse, isPrimitive, extendType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal, ref, chooseRootType } from "./utils.js"
+import { intEncoding, enumVariantsInUse, isPrimitive, canonicalizeType, extendSchema, mergeSchemas, fillSchemaDefaults, setEverythingLocal, ref, chooseRootType } from "./utils.js"
 import { metaSchema } from "./metaschema.js"
 // import {Console} from 'node:console'
 // const console = new Console({
@@ -268,14 +268,14 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
       // console.log('length', length)
       const result = []
       for (let i = 0; i < length; i++) {
-        result.push(readThing(r, schema, extendType(type.fieldType)))
+        result.push(readThing(r, schema, type.fieldType))
       }
       return result
     }
     case 'map': {
       const length = readVarInt(r)
-      const keyType = extendType(type.keyType)
-      const valType = extendType(type.valType)
+      const keyType = canonicalizeType(type.keyType)
+      const valType = canonicalizeType(type.valType)
       if (type.decodeForm == null || type.decodeForm == 'object') {
         if (keyType.type !== 'string' && keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript')
         const result: Record<string, any> = {}

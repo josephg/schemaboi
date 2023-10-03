@@ -151,8 +151,8 @@ function mergeEnums(remote: EnumSchema, local: EnumSchema): EnumSchema {
 
 
 function mergeTypes(remote: SType | string, local: SType | string): SType {
-  remote = extendType(remote)
-  local = extendType(local)
+  remote = canonicalizeType(remote)
+  local = canonicalizeType(local)
 
   if (!typesShallowEq(remote, local)) throw Error('Cannot merge disperate types')
 
@@ -218,18 +218,18 @@ type AndAny<T> = T & Record<string, any>
 const cloneType = (t: AndAny<SType> | Primitive | string): SType => (
   typeof t === 'string' ? (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
     : t.type === 'ref' ? {type: 'ref', key: t.key}
-    : t.type === 'list' ? {type: 'list', fieldType: extendType(t.fieldType)}
+    : t.type === 'list' ? {type: 'list', fieldType: canonicalizeType(t.fieldType)}
     : t.type === 'map' ? {
       type: 'map',
-      keyType: extendType(t.keyType),
-      valType: extendType(t.valType),
+      keyType: canonicalizeType(t.keyType),
+      valType: canonicalizeType(t.valType),
       decodeForm: t.decodeForm ?? 'object'
     }
     : isInt(t) ? { type: t.type, numericEncoding: intEncoding(t), decodeAsBigInt: t.decodeAsBigInt ?? false }
     : { type: t.type }
 )
 
-export const extendType = (t: AndAny<SType> | Primitive | string): SType => (
+export const canonicalizeType = (t: AndAny<SType> | Primitive | string): SType => (
   typeof t === 'object'
     ? t
     : (isPrimitive(t) ? {type: t} : {type: 'ref', key: t})
@@ -257,7 +257,7 @@ function structToEnumVariant(s: AppStructSchema): EnumVariant {
   return {
     encode: s.encode,
     decode: s.decode,
-    fields: objMapToMap(s.fields, f => extendField(extendType(f))),
+    fields: objMapToMap(s.fields, f => extendField(canonicalizeType(f))),
   }
 }
 
@@ -294,7 +294,7 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
 export function extendSchema(schema: AppSchema): Schema {
   return {
     id: schema.id,
-    root: schema.root ? extendType(schema.root) : undefined,
+    root: schema.root ? canonicalizeType(schema.root) : undefined,
     types: objMap(schema.types, s => (
       s.type === 'enum' ? extendEnum(s) : extendStruct(s)
     ))
@@ -315,11 +315,11 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
     case 'ref':
       return a.key === (b as Ref).key
     case 'list':
-      return typesShallowEq(extendType(a.fieldType), extendType((b as List).fieldType))
+      return typesShallowEq(canonicalizeType(a.fieldType), canonicalizeType((b as List).fieldType))
     case 'map':
       const bb = b as MapType
-      return typesShallowEq(extendType(a.keyType), extendType(bb.keyType))
-        && typesShallowEq(extendType(a.valType), extendType(bb.valType))
+      return typesShallowEq(canonicalizeType(a.keyType), canonicalizeType(bb.keyType))
+        && typesShallowEq(canonicalizeType(a.valType), canonicalizeType(bb.valType))
     default: return true // They'd better be primitives!
 
     // Other cases (when added) will generate a type error.
@@ -327,6 +327,9 @@ export const typesShallowEq = (a: SType, b: SType): boolean => {
 }
 
 export const ref = (key: string): {type: 'ref', key: string} => ({type: 'ref', key})
+export const list = (fieldType: SType | string): {type: 'list', fieldType: SType} => (
+  { type: 'list', fieldType: canonicalizeType(fieldType) }
+)
 
 export const enumOfStrings = (...variants: string[]): AppEnumSchema => ({
   type: 'enum',
@@ -406,10 +409,10 @@ export const enumVariantsInUse = (e: EnumSchema): string[] => (
 const fillSTypeDefaults = (t: SType) => {
   if (t.type === 'map') {
     t.decodeForm ??= 'object'
-    t.valType = extendType(t.valType)
+    t.valType = canonicalizeType(t.valType)
     fillSTypeDefaults(t.valType)
   } else if (t.type === 'list') {
-    t.fieldType = extendType(t.fieldType)
+    t.fieldType = canonicalizeType(t.fieldType)
     fillSTypeDefaults(t.fieldType)
   } else if (isInt(t)) {
     t.decodeAsBigInt ??= false
@@ -541,7 +544,7 @@ export const chooseRootType = (schema: Schema, reqType?: string | SType): SType 
   let rootType = reqType ?? schema.root
   if (rootType == null) throw Error('Schema has no root type. You must specify which type from the schema you are loading')
 
-  rootType = extendType(rootType) // If the requested root type is specified as a string, extend it.
+  rootType = canonicalizeType(rootType) // If the requested root type is specified as a string, extend it.
 
   if (rootType.type === 'ref' && schema.types[rootType.key] == null) {
      throw Error(`Schema is missing requested type '${rootType.key}'`)
