@@ -162,12 +162,10 @@ describe('roundtrips', () => {
               Blue: null,
               Red: null,
               RGB: {
-                associatedData: {
-                  fields: {
-                    r: {type: 'u8', optional: true},
-                    g: {type: 'u8', optional: true},
-                    b: {type: 'u8', optional: true},
-                  }
+                fields: {
+                  r: {type: 'u8', optional: true},
+                  g: {type: 'u8', optional: true},
+                  b: {type: 'u8', optional: true},
                 }
               }
             }
@@ -197,9 +195,7 @@ describe('roundtrips', () => {
               Blue: true,
               Red: true,
               RGB: {
-                associatedData: {
-                  fields: { r: 'u8', g: 'u8', b: 'u8' }
-                }
+                fields: { r: 'u8', g: 'u8', b: 'u8' }
               }
             }
           }

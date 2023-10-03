@@ -196,13 +196,7 @@ export interface AppEnumSchema {
   encode?: (obj: any) => Record<string, any>,
   decode?: (variant: string, data: Record<string, any> | null) => any,
 
-  variants: Record<string, {
-    // renameFieldTo?: string,
-    associatedData: AppStructSchema,
-  } | {
-    // Simpler way to express fields.
-    fields: Record<string, AppStructField | Primitive | string>
-  } | null | true> | string[], // null or true are both ignored the same.
+  variants: string[] | Record<string, null | true | AppStructSchema>, // null or true are both ignored the same.
 }
 
 export type EnumObject = string

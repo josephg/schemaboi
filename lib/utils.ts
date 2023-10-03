@@ -277,7 +277,6 @@ function extendEnum(s: AppEnumSchema): EnumSchema {
   const variants = Array.isArray(s.variants) ? new Map(s.variants.map((s): [string, EnumVariant] => [s, {}]))
     : objMapToMap(s.variants, (v): EnumVariant => (
       (v == null || v === true) ? {}
-        : 'associatedData' in v ? structToEnumVariant(v.associatedData)
         : structToEnumVariant(v) // 'fields' in v.
     ))
 

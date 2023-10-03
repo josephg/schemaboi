@@ -30,9 +30,7 @@ describe('extend', () => {
           variants: {
             Line: null,
             Square: {
-              associatedData: {
-                fields: { x: {type: 'f32'}, y: 'f32'}
-              }
+              fields: { x: {type: 'f32'}, y: 'f32'}
             }
           }
         },

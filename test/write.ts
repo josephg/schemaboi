@@ -31,7 +31,6 @@ describe('write', () => {
       root: ref('Contact'),
       types: {
         Contact: {
-          type: 'struct',
           fields: {
             name: String,
             age: {type: 'u32', optional: false},
@@ -51,13 +50,10 @@ describe('write', () => {
             Blue: null,
             Red: null,
             RGB: {
-              associatedData: {
-                type: 'struct',
-                fields: {
-                  r: 'u32',
-                  g: 'u32',
-                  b: 'u32',
-                }
+              fields: {
+                r: 'u32',
+                g: 'u32',
+                b: 'u32',
               }
             }
           }
