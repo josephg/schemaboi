@@ -1,7 +1,8 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
 import { EnumObject, EnumSchema, Schema, SType, Field, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
-import { bytesUsed, trimBit, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "./varint.js"
+import { bytesUsed, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "bijective-varint"
+import { trimBit } from "./utils.js"
 import { intEncoding, enumVariantsInUse, isPrimitive, canonicalizeType, mergeSchemas, fillSchemaDefaults, setEverythingLocal, ref, chooseRootType } from "./utils.js"
 import { extendSchema } from './extendschema.js'
 import { metaSchema } from "./metaschema.js"

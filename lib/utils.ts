@@ -459,3 +459,12 @@ export const chooseRootType = (schema: Schema, reqType?: string | SType): SType 
 
   return rootType
 }
+
+export function mixBit(val: number, bit: boolean): number {
+  return (val * 2) + (+bit)
+}
+
+export function trimBit(val: number): [boolean, number] {
+  // I would use a bit shift for this division, but bit shifts coerce to a i32.
+  return [!!(val % 2), Math.floor(val / 2)]
+}

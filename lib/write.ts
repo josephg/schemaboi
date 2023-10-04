@@ -1,4 +1,5 @@
-import { MAX_BIGINT_LEN, MAX_INT_LEN, mixBit, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "./varint.js"
+import { MAX_BIGINT_LEN, MAX_INT_LEN, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "bijective-varint"
+import { mixBit } from "./utils.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
 import { assert, chooseRootType, enumVariantsInUse, canonicalizeType, intEncoding, isPrimitive, ref } from "./utils.js"
 import { extendSchema } from './extendschema.js'

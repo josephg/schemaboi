@@ -18,7 +18,9 @@
     "test": "npx tsc && mocha dist/test/",
     "prepare": "rm -rf dist && tsc -p ."
   },
-  "dependencies": {},
+  "dependencies": {
+    "bijective-varint": "^1.0.0"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.19",

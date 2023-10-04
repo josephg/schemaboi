@@ -1,7 +1,7 @@
 import 'mocha'
 import { AppSchema, extendSchema, ref, list, map } from '../lib/index.js'
 import * as assert from 'assert/strict'
-import { testSimpleRoundTrip } from './testhelpers.js'
+import { testSimpleRoundTrip } from '../lib/testhelpers.js'
 
 // The encoder needs the data to be in a certain shape to correctly encode and decode enums.
 type JSONValueEnc = {type: 'null' | 'true' | 'false'}
