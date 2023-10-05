@@ -170,7 +170,7 @@ export interface AppSchema {
 // The type is inlined into the struct field to make things way simpler.
 export type AppStructField = SType & {
   /** If the field is missing in the data set, use this value instead of null when decoding. */
-  defaultValue?: any,
+  defaultValue?: any | ((obj: any) => any),
   skip?: boolean,
   optional?: boolean,
   renameFieldTo?: string,

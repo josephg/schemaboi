@@ -1,4 +1,4 @@
-import { MAX_BIGINT_LEN, MAX_INT_LEN, varintEncodeInto, varintEncodeIntoBN, zigzagEncode, zigzagEncodeBN } from "bijective-varint"
+import { MAX_BIGINT_LEN, MAX_INT_LEN, encodeInto, encodeIntoBN, zigzagEncode, zigzagEncodeBN } from "bijective-varint"
 import { mixBit } from "./utils.js"
 import { EnumObject, EnumSchema, IntPrimitive, Primitive, Schema, AppSchema, SType, WrappedPrimitive, EnumVariant } from "./schema.js"
 import { assert, chooseRootType, enumVariantsInUse, canonicalizeType, intEncoding, isPrimitive, ref } from "./utils.js"
@@ -42,11 +42,11 @@ const ensureCapacity = (b: WriteBuffer, amt: number) => {
 
 const writeVarInt = (w: WriteBuffer, num: number) => {
   ensureCapacity(w, MAX_INT_LEN)
-  w.pos += varintEncodeInto(num, w.buffer, w.pos)
+  w.pos += encodeInto(num, w.buffer, w.pos)
 }
 const writeVarIntBN = (w: WriteBuffer, num: bigint) => {
   ensureCapacity(w, MAX_BIGINT_LEN)
-  w.pos += varintEncodeIntoBN(num, w.buffer, w.pos)
+  w.pos += encodeIntoBN(num, w.buffer, w.pos)
 }
 
 const encoder = new TextEncoder()
@@ -56,7 +56,7 @@ const writeString = (w: WriteBuffer, str: string) => {
   // length prefix much easier to place.
   const strBytes = encoder.encode(str)
   ensureCapacity(w, MAX_INT_LEN + strBytes.length)
-  w.pos += varintEncodeInto(strBytes.length, w.buffer, w.pos)
+  w.pos += encodeInto(strBytes.length, w.buffer, w.pos)
   w.buffer.set(strBytes, w.pos)
   w.pos += strBytes.length
 }
@@ -332,7 +332,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       let valBuffer = val as Uint8Array
 
       ensureCapacity(w, 9 + valBuffer.byteLength)
-      w.pos += varintEncodeInto(valBuffer.byteLength, w.buffer, w.pos)
+      w.pos += encodeInto(valBuffer.byteLength, w.buffer, w.pos)
       w.buffer.set(valBuffer, w.pos)
       w.pos += valBuffer.byteLength
       return
@@ -347,7 +347,7 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
         const strBytes = encoder.encode(val)
         ensureCapacity(w, 9 + strBytes.length)
         let n = mixBit(strBytes.length, false)
-        w.pos += varintEncodeInto(n, w.buffer, w.pos)
+        w.pos += encodeInto(n, w.buffer, w.pos)
         w.buffer.set(strBytes, w.pos)
         w.pos += strBytes.length
 
@@ -367,22 +367,30 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
   // Unreachable.
 }
 
-const createWriteBuffer = (): WriteBuffer => ({
-  buffer: new Uint8Array(32),
-  pos: 0,
-  ids: new Map([['Default', 0]])
+const createWriteBuf = (buffer: Uint8Array = new Uint8Array(32), pos: number = 0): WriteBuffer => ({
+  buffer, pos, ids: new Map([['Default', 0]])
 })
 
-export function writeRaw(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
-  const writer = createWriteBuffer()
+const consumeWriteBuf = (writer: WriteBuffer): Uint8Array => writer.buffer.slice(0, writer.pos)
+
+export function writeRawInto(schema: Schema, data: any, buffer: Uint8Array | undefined, pos: number = 0, ofType?: string | SType): Uint8Array {
+  const writer = createWriteBuf(buffer, pos)
 
   encodeThing(writer, schema, data, chooseRootType(schema, ofType))
 
-  return writer.buffer.slice(0, writer.pos)
+  return consumeWriteBuf(writer)
 }
 
-export function write(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
-  const writer = createWriteBuffer()
+export function writeRaw(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
+  return writeRawInto(schema, data, undefined, 0, ofType)
+}
+
+/**
+ * Write the given data into the given bufffer. Note the returned buffer may differ
+ * (due to running out of space). So make sure you use the returned Uint8Array!!
+ */
+export function writeInto(schema: Schema, data: any, buffer: Uint8Array | undefined, pos: number = 0, ofType?: string | SType): Uint8Array {
+  const writer = createWriteBuf(buffer, pos)
   const magicBytes = encoder.encode("SB11")
   writer.buffer.set(magicBytes, writer.pos)
   writer.pos += 4
@@ -392,9 +400,18 @@ export function write(schema: Schema, data: any, ofType?: string | SType): Uint8
   writer.ids.clear()
   encodeThing(writer, schema, data, chooseRootType(schema, ofType))
 
-  return writer.buffer.slice(0, writer.pos)
+  return consumeWriteBuf(writer)
+}
+
+export function write(schema: Schema, data: any, ofType?: string | SType): Uint8Array {
+  return writeInto(schema, data, undefined, 0, ofType)
 }
 
 export function writeAppSchema(schema: AppSchema, data: any): Uint8Array {
   return write(extendSchema(schema), data)
+}
+
+// Is it worth having this method at all?
+export function writeLocalSchema(schema: Schema, buffer?: Uint8Array, pos?: number): Uint8Array {
+  return writeRawInto(metaSchema, schema, buffer, pos)
 }

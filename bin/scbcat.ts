@@ -19,5 +19,7 @@ if (filename == null) {
 
   const [schema, data] = schemaboi.readWithoutSchema(bytes)
   // console.log(JSON.stringify(schema, null, 2))
-  console.log(JSON.stringify(data, null, 2))
+
+  console.dir(data, {colors: true, depth: Infinity})
+  // console.log(JSON.stringify(data, null, 2))
 }

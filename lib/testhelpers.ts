@@ -11,6 +11,7 @@ type AnyType = null | undefined
   | AnyType[]
   | {[k: string]: AnyType}
   | Map<AnyType, AnyType>
+  | Set<AnyType>
 
 function simpleDeepEqual(expect: AnyType, actual: AnyType) {
   if (expect === actual) return true // Handle equality for bools, strings, numbers, null.
@@ -33,6 +34,13 @@ function simpleDeepEqual(expect: AnyType, actual: AnyType) {
       const v2 = actual.get(k)
       if (!simpleDeepEqual(v1, v2)) return false
     }
+  } else if (expect instanceof Set) {
+    if (!(actual instanceof Set) || expect.size !== actual.size) return false
+
+    if (expect.size > 0) throw Error('Non-empty sets not implemented')
+    // for (const k of expect.entries()) {
+
+    // }
   } else {
     // Its an object. At least I hope so.
     if (expect instanceof Set || actual instanceof Set) throw Error('Sets not implemented')

@@ -1,7 +1,7 @@
 // import { Enum, Primitive, ref, Schema, Struct, SType } from "./schema.js";
 
 import { EnumObject, EnumSchema, Schema, SType, Field, IntPrimitive, WrappedPrimitive, AppSchema, EnumVariant } from "./schema.js"
-import { bytesUsed, varintDecode, varintDecodeBN, zigzagDecode, zigzagDecodeBN } from "bijective-varint"
+import { bytesUsed, decode, decodeBN, zigzagDecode, zigzagDecodeBN } from "bijective-varint"
 import { trimBit } from "./utils.js"
 import { intEncoding, enumVariantsInUse, isPrimitive, canonicalizeType, mergeSchemas, fillSchemaDefaults, setEverythingLocal, ref, chooseRootType } from "./utils.js"
 import { extendSchema } from './extendschema.js'
@@ -23,12 +23,12 @@ interface Reader {
 function readVarInt(r: Reader): number {
   const buf = new Uint8Array(r.data.buffer, r.pos + r.data.byteOffset)
   r.pos += bytesUsed(buf)
-  return varintDecode(buf)
+  return decode(buf)
 }
 function readVarIntBN(r: Reader): bigint {
   const buf = new Uint8Array(r.data.buffer, r.pos + r.data.byteOffset)
   r.pos += bytesUsed(buf)
-  return varintDecodeBN(buf)
+  return decodeBN(buf)
 }
 
 const textDecoder = new TextDecoder('utf-8')
