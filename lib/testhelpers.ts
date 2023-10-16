@@ -101,7 +101,7 @@ export function testSimpleRoundTrip(appSchema: AppSchema, dataType: string | STy
 
   // console.log('bytes', bytes.byteLength, 'JSON length', JSON.stringify(data).length, bytes)
 
-  assertDeepEqual(result, expectedOutput)
+  assertDeepEqual(expectedOutput, result)
 
   {
     const opaque = write(schema, data, dataType)
@@ -109,6 +109,6 @@ export function testSimpleRoundTrip(appSchema: AppSchema, dataType: string | STy
     // console.log('opaque', opaque)
     // fs.writeFileSync('tmp_test.sb', opaque)
     const [fileSchema, result] = read(schema, opaque, dataType)
-    assertDeepEqual(result, expectedOutput)
+    assertDeepEqual(expectedOutput, result)
   }
 }
