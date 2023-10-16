@@ -29,10 +29,11 @@ const cloneType = (t: AndAny<SType> | Primitive | string): SType => (
     : t.type === 'ref' ? {type: 'ref', key: t.key}
     : t.type === 'list' ? {type: 'list', fieldType: canonicalizeType(t.fieldType)}
     : t.type === 'map' ? {
+      ...t, // type, encodeEntry and decodeEntry.
       type: 'map',
       keyType: canonicalizeType(t.keyType),
       valType: canonicalizeType(t.valType),
-      decodeForm: t.decodeForm ?? 'object'
+      decodeForm: t.decodeForm ?? 'object',
     }
     : isInt(t) ? { type: t.type, numericEncoding: intEncoding(t), decodeAsBigInt: t.decodeAsBigInt ?? false }
     : { type: t.type }

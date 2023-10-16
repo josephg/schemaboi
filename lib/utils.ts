@@ -145,10 +145,10 @@ function mergeTypes(remote: SType | string, local: SType | string): SType {
   } else if (remote.type === 'map') {
     const l = local as MapType
     return {
-      type: 'map',
+      ...l, // type, encodeEntry and decodeEntry.
       keyType: mergeTypes(remote.keyType, l.keyType),
       valType: mergeTypes(remote.valType, l.valType),
-      decodeForm: l.decodeForm ?? 'object'
+      decodeForm: l.decodeForm ?? 'object',
     }
   } else {
     // For refs and simple primitives, we have nothing more to do here.

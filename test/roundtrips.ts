@@ -28,6 +28,7 @@ const testRoundTripFullSchema = (schema: Schema, input: any, expectedOutput = in
     const opaque = write(schema, input)
     // console.log('opaque', opaque)
     // fs.writeFileSync('tmp_test.sb', opaque)
+    // console.log('schema', schema)
     const [fileSchema, result] = read(schema, opaque)
     assert.deepEqual(result, expectedOutput)
   }
@@ -90,9 +91,30 @@ describe('roundtrips', () => {
         root: map('string', 'f64', 'map'),
         types: {}
       }
-    
+
       testRoundTrip(schema, new Map([['aa', 123], ['bb', 213.23]]))
       testRoundTrip(schema, {aa: 123, bb: 213.23}, new Map([['aa', 123], ['bb', 213.23]]))
+    })
+
+    it('works with maps using encode and decode methods', () => {
+      const schema: AppSchema = {
+        id: 'Example',
+        root: {
+          ...map('u64', 'u64', 'map'),
+          encodeEntry([k, v]) {
+            assert.equal(typeof k, 'boolean')
+            return [k+0, v]
+          },
+          decodeEntry([k, v]) {
+            assert.equal(typeof k, 'number')
+            return [k != 0, v]
+          },
+        },
+        types: {}
+      }
+
+      // testRoundTrip(schema, new Map([[true, 123], [false, 456]]))
+      testRoundTrip(schema, new Map([[true, 123]]))
     })
   })
 

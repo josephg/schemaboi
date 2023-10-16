@@ -282,16 +282,18 @@ function readThing(r: Reader, schema: Schema, type: SType, parent?: any): any {
         if (keyType.type !== 'string' && keyType.type !== 'id') throw Error('Cannot read map with non-string keys in javascript. Use Map decodeFrom.')
         const result: Record<string, any> = {}
         for (let i = 0; i < length; i++) {
-          const k = readPrimitive(r, keyType)
-          const v = readThing(r, schema, valType)
+          let k = readPrimitive(r, keyType)
+          let v = readThing(r, schema, valType)
+          if (type.decodeEntry) [k, v] = type.decodeEntry([k, v])
           result[k] = v
         }
         return result
       } else {
         const entries: [number | string | boolean, any][] = []
         for (let i = 0; i < length; i++) {
-          const k = readThing(r, schema, keyType)
-          const v = readThing(r, schema, valType)
+          let k = readThing(r, schema, keyType)
+          let v = readThing(r, schema, valType)
+          if (type.decodeEntry) [k, v] = type.decodeEntry([k, v])
           entries.push([k, v])
         }
         return type.decodeForm == 'entryList'

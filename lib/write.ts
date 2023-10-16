@@ -133,7 +133,7 @@ function encodeFields(w: WriteBuffer, schema: Schema, val: any, variant: EnumVar
   // console.log('encodeFields', variant, val)
   if (variant.encode) val = variant.encode(val)
 
-  if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Cannot encode fields in val: ' + JSON.stringify(val))
+  if (typeof val !== 'object' || Array.isArray(val) || val == null) throw Error('Expected struct with fields. Got: ' + JSON.stringify(val))
 
   // let encodingBits = true
 
@@ -230,6 +230,11 @@ function encodeEnum(w: WriteBuffer, schema: Schema, val: EnumObject | any, e: En
     : val.type === '_foreign' ? val.data.type
     : val.type
 
+  if (typeof variantName != 'string') {
+    console.error('When encoding val:', val)
+    throw Error('Invalid enum variant name: ' + variantName)
+  }
+
   const associatedData = e.localStructIsVariant != null ? val
     : typeof val === 'string' ? {}
     : val.type === '_foreign' ? val.data
@@ -280,9 +285,10 @@ function encodeThing(w: WriteBuffer, schema: Schema, val: any, type: SType, pare
       writeVarInt(w, entries.length)
       const keyType = canonicalizeType(type.keyType)
       const valType = canonicalizeType(type.valType)
-      for (const [k, v] of entries) {
-        encodeThing(w, schema, k, keyType)
-        encodeThing(w, schema, v, valType)
+      for (let entry of entries) {
+        if (type.encodeEntry) entry = type.encodeEntry(entry)
+        encodeThing(w, schema, entry[0], keyType)
+        encodeThing(w, schema, entry[1], valType)
       }
       return
     }

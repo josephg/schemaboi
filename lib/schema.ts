@@ -9,7 +9,12 @@ export interface MapType { // MapType rather than Map because Map is the name of
   keyType: SType, // TODO: Consider making key type default to 'string' here in JS land.
   valType: SType,
   // asEntryList?: true,
-  decodeForm?: 'object' | 'map' | 'entryList' // JS field. defaults to object.
+  decodeForm: 'object' | 'map' | 'entryList', // JS field. defaults to object.
+
+  /** If provided, all entries are mapped through this function while being written */
+  encodeEntry?(entry: [any, any]): [any, any],
+  /** If provided, all entries are mapped through this function while being decoded */
+  decodeEntry?(entry: [any, any]): [any, any],
 }
 export interface WrappedPrimitive {
   type: 'bool' | 'string' | 'binary' | 'id' | 'f32' | 'f64',
