@@ -65,7 +65,7 @@ describe('roundtrips', () => {
     it('works with maps', () => {
       const schema: AppSchema = {
         id: 'Example',
-        root: map('string', 'f64'),
+        root: map('string', 'f64', 'object'),
         types: {}
       }
 

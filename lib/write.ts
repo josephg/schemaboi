@@ -66,11 +66,12 @@ function checkPrimitiveType(val: any, type: Primitive) {
   switch (type) {
     case 'u8': case 'u16': case 'u32': case 'u64': case 'u128':
     case 's8': case 's16': case 's32': case 's64': case 's128':
-      case 'f32': case 'f64':
-      assert(typeof val === 'number' || typeof val === 'bigint'); break
-    case 'bool': assert(typeof val === 'boolean'); break
-    case 'string': case 'id': assert(typeof val === 'string'); break
-    case 'binary': assert(val instanceof Uint8Array); break // TODO: Allow more binary types.
+    case 'f32': case 'f64':
+      assert(typeof val === 'number' || typeof val === 'bigint', 'Expected number. Got ' + typeof val);
+      break
+    case 'bool': assert(typeof val === 'boolean', 'Expected bool. Got ' + typeof val); break
+    case 'string': case 'id': assert(typeof val === 'string', 'Expected string. Got ' + typeof val); break
+    case 'binary': assert(val instanceof Uint8Array, 'Expected number. Got ' + typeof val); break // TODO: Allow more binary types.
     default: let unused: never = type; throw Error(`Expected primitive type. Got: ${type}`)
   }
 }

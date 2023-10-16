@@ -414,14 +414,17 @@ export const prim = (primType: Primitive): WrappedPrimitive | IntPrimitive => {
   if (!isPrimitive(primType)) throw Error('prim() called with non-primitive type: ' + primType)
   return {type: primType}
 }
+
 export const String: SType = prim('string')
 export const Id: SType = prim('id')
 export const Bool: SType = prim('bool')
+
 export const ref = (key: string): Ref => ({type: 'ref', key})
 export const list = (fieldType: SType | string): List => (
   { type: 'list', fieldType: canonicalizeType(fieldType) }
 )
-export const map = (keyType: SType | string, valType: SType | string, decodeForm?: 'object' | 'map' | 'entryList'): MapType => ({
+// export const map = (keyType: SType | string, valType: SType | string, decodeForm?: 'object' | 'map' | 'entryList'): MapType => ({
+export const map = (keyType: SType | string, valType: SType | string, decodeForm: 'object' | 'map' | 'entryList'): MapType => ({
   type: 'map',
   keyType: canonicalizeType(keyType),
   valType: canonicalizeType(valType),
