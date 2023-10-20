@@ -9,11 +9,11 @@
       "types": "./dist/lib/testhelpers.d.ts"
     }
   },
+  "type": "module",
   "types": "dist/lib/index.d.ts",
   "repository": "https://github.com/josephg/schemaboi.git",
   "author": "Seph Gentle <me@josephg.com>",
   "license": "ISC",
-  "type": "commonjs",
   "scripts": {
     "test": "npx tsc && mocha dist/test/",
     "prepare": "rm -rf dist && tsc -p ."

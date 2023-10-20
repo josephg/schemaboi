@@ -1,4 +1,4 @@
-import { AppSchema, SType, Schema, extendSchema, readRaw, writeRaw, read, write } from "."
+import { AppSchema, SType, Schema, extendSchema, readRaw, writeRaw, read, write } from "./index.js"
 
 // We'll cache the extended schema for performance.
 const schemaCache = new WeakMap<AppSchema, Schema>()
