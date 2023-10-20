@@ -1,3 +1,7 @@
+# 0.3.0:
+
+- Changed package from commonjs to esm
+
 # 0.2.0:
 
 - Fixed `scbcat` to output larger documents better and output maps correctly
