@@ -25,7 +25,7 @@
     "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.19",
     "mocha": "^10.2.0",
-    "typescript": "^4.9.5"
+    "typescript": "^5.2.2"
   },
   "bin": {
     "scbcat": "dist/bin/scbcat.js"
